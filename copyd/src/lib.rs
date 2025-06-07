@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod checkpoint;
 pub mod config;
 pub mod copy_engine;
