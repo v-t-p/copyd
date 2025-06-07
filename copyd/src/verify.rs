@@ -120,18 +120,11 @@ impl FileVerifier {
         let mut file = tokio::fs::File::open(file_path).await
             .with_context(|| format!("Failed to open file for MD5: {:?}", file_path))?;
         
-        let mut hasher = Md5Hasher::new();
-        let mut buffer = vec![0u8; 8192];
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents).await?;
         
-        loop {
-            let bytes_read = file.read(&mut buffer).await?;
-            if bytes_read == 0 {
-                break;
-            }
-            hasher.update(&buffer[..bytes_read]);
-        }
-        
-        Ok(format!("{:x}", hasher.finalize()))
+        let digest = md5::compute(&contents);
+        Ok(format!("{:x}", digest))
     }
 
     async fn calculate_sha256(file_path: &Path) -> Result<String> {
