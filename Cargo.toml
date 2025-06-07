@@ -32,6 +32,10 @@ prometheus = "0.13"
 crossterm = "0.27"
 ratatui = "0.24"
 
+# Hashing
+md5 = "0.7"
+sha2 = "0.10"
+
 [workspace.package]
 version = "0.1.0"
 edition = "2021"

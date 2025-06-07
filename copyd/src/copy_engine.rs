@@ -444,7 +444,7 @@ impl FileCopyEngine {
             let atime_spec = TimeSpec::from(atime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             let mtime_spec = TimeSpec::from(mtime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             
-            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, Default::default()) {
+            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, UtimensatFlags::empty()) {
                 warn!("Could not set timestamps for {:?}: {}", destination, e);
             }
         }
