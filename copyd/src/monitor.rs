@@ -148,6 +148,7 @@ impl EnhancedMonitor {
             CopydError::CrossDevice {..} => "cross_device",
             _ => "unknown"
         }]).inc();
+        self.metrics.errors_by_type.inc();
         
         // Trigger alerts for critical errors
         if matches!(error.severity(), crate::error::ErrorSeverity::Critical) {
@@ -159,7 +160,7 @@ impl EnhancedMonitor {
     pub async fn health_status(&self) -> HealthStatus {
         let uptime = self.start_time.elapsed();
         let active_jobs = self.metrics.jobs_active.get();
-        let total_errors = self.metrics.errors_total.get();
+        let total_errors = self.metrics.errors_by_type.get();
         let memory_usage = self.metrics.memory_usage.get();
         let cpu_usage = self.metrics.cpu_usage.get();
 
@@ -185,14 +186,13 @@ impl EnhancedMonitor {
 
     /// Export metrics in Prometheus format
     pub fn export_metrics(&self) -> String {
-        use prometheus::Encoder;
         let encoder = prometheus::TextEncoder::new();
         let metric_families = self.registry.gather();
         encoder.encode_to_string(&metric_families).unwrap_or_default()
     }
 
     pub fn record_job_status(&self, status: JobStatus) {
-        let metrics = self.metrics.lock().unwrap();
+        let metrics = &self.metrics;
         match status {
             JobStatus::Pending => {}
             JobStatus::Running => metrics.jobs_total.inc(),
@@ -317,7 +317,7 @@ impl AlertManager {
         if total_jobs > 10 {
             let failure_rate = (failed_jobs as f64 / total_jobs as f64) * 100.0;
             if failure_rate > 20.0 {
-                let alert = Alert {
+                let _alert = Alert {
                     id: uuid::Uuid::new_v4().to_string(),
                     severity: AlertSeverity::High,
                     message: format!("High job failure rate: {:.1}%", failure_rate),

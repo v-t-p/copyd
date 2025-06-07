@@ -20,8 +20,8 @@ pub enum CopydError {
     #[error("Source and destination are the same: {path}")]
     SameSourceDestination { path: PathBuf },
 
-    #[error("Cross-device operation not supported: {source} -> {destination}")]
-    CrossDevice { source: PathBuf, destination: PathBuf },
+    #[error("Cross-device operation not supported: {source_path} -> {destination_path}")]
+    CrossDevice { source_path: PathBuf, destination_path: PathBuf },
 
     #[error("Insufficient disk space: need {required} bytes, available {available} bytes")]
     InsufficientSpace { required: u64, available: u64 },

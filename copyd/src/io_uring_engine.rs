@@ -1,9 +1,8 @@
 use anyhow::{Result, Context};
 use std::path::Path;
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::io::AsRawFd;
 use std::time::Instant;
-use tokio::fs::File;
-use tracing::{info, debug, warn, error};
+use tracing::{info, debug};
 use io_uring::{IoUring, opcode, types};
 use std::io::{IoSlice, IoSliceMut};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -127,7 +126,8 @@ impl IoUringCopyEngine {
             self.ring.submit_and_wait(1)?;
 
             // Process completions
-            for cqe in &mut self.ring.completion() {
+            let cqes: Vec<_> = self.ring.completion().collect();
+            for cqe in cqes {
                 let user_data = cqe.user_data();
                 let (is_read, buf_idx, file_offset) = Self::decode_user_data(user_data);
                 let result = cqe.result();
@@ -193,7 +193,8 @@ impl IoUringCopyEngine {
         self.ring.submit_and_wait(1)?;
 
         // Process fsync completion
-        for cqe in &mut self.ring.completion() {
+        let cqes: Vec<_> = self.ring.completion().collect();
+        for cqe in cqes {
             if cqe.result() < 0 {
                 return Err(anyhow::anyhow!("fsync failed: {}", cqe.result()));
             }
@@ -257,7 +258,7 @@ impl IoUringCopyEngine {
             let total_read_size = std::cmp::min(remaining, (chunk_size * vector_size) as u64);
             
             // Prepare iovec for vectored read
-            let mut iovecs: Vec<IoSliceMut> = buffer_vecs[current_buffer_set]
+            let iovecs: Vec<IoSliceMut> = buffer_vecs[current_buffer_set]
                 .iter_mut()
                 .take(vector_size)
                 .map(|buf| IoSliceMut::new(buf))
@@ -279,7 +280,8 @@ impl IoUringCopyEngine {
             self.ring.submit_and_wait(1)?;
 
             // Process read completion
-            for cqe in &mut self.ring.completion() {
+            let cqes: Vec<_> = self.ring.completion().collect();
+            for cqe in cqes {
                 let bytes_read = cqe.result() as u64;
                 if cqe.result() < 0 {
                     return Err(anyhow::anyhow!("Vectored read failed: {}", cqe.result()));
@@ -310,7 +312,8 @@ impl IoUringCopyEngine {
                 self.ring.submit_and_wait(1)?;
 
                 // Process write completion
-                for write_cqe in &mut self.ring.completion() {
+                let cqes: Vec<_> = self.ring.completion().collect();
+                for write_cqe in cqes {
                     if write_cqe.result() < 0 {
                         return Err(anyhow::anyhow!("Vectored write failed: {}", write_cqe.result()));
                     }
@@ -354,7 +357,7 @@ impl IoUringCopyEngine {
 
     pub fn get_ring_stats(&self) -> (u32, u32, u32) {
         let params = self.ring.params();
-        (params.sq_entries(), params.cq_entries(), params.features())
+        (params.sq_entries(), params.cq_entries(), params.features)
     }
 }
 

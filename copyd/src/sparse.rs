@@ -3,7 +3,7 @@ use std::path::Path;
 use std::os::unix::io::{AsRawFd, RawFd};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncSeekExt};
-use tracing::{info, debug, warn};
+use tracing::{info, debug};
 
 #[derive(Debug, Clone)]
 pub struct SparseRegion {

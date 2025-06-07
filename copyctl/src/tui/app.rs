@@ -309,10 +309,12 @@ impl App {
         self.status_message = Some((message.to_string(), Instant::now(), is_error));
     }
 
+    /*
     pub fn show_popup(&mut self, content: &str) {
         self.popup_content = content.to_string();
         self.show_popup = true;
     }
+    */
 }
 
 // Helper function to create a centered rectangle

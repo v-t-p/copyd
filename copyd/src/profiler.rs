@@ -3,9 +3,6 @@ use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
 use tracing::debug;
 
-#[cfg(target_os = "linux")]
-use procfs::process::Process;
-
 /// Performance metrics collector
 #[derive(Debug, Clone)]
 pub struct PerformanceMetrics {

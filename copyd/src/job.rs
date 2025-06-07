@@ -396,13 +396,16 @@ impl JobManager {
         for file_entry in traversal.files {
             let dest_path = file_entry.dest_path.clone();
             match copy_engine.copy_file(&file_entry.source_path, &dest_path, &copy_options).await {
-                Ok(bytes_copied) => {
+                Ok(_bytes_copied) => {
+                    /*
                     let _ = event_sender.send(JobEvent {
                         job_id: Some(JobId { uuid: job_id.to_string() }),
                         event_type: Some(job_event::EventType::FileCompleted(Default::default())),
                     });
+                    */
                 }
                 Err(e) => {
+                    /*
                      let _ = event_sender.send(JobEvent {
                         job_id: Some(JobId { uuid: job_id.to_string() }),
                         event_type: Some(job_event::EventType::FileError(FileError {
@@ -410,6 +413,7 @@ impl JobManager {
                             error: e.to_string(),
                         })),
                     });
+                    */
                 }
             }
         }

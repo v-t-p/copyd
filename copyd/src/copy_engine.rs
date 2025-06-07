@@ -14,12 +14,9 @@ use nix::sys::sendfile::sendfile;
 #[cfg(unix)]
 use nix::unistd;
 use std::time::SystemTime;
-#[cfg(unix)]
-use libc::{off_t};
 use crate::verify::{FileVerifier};
 use copyd_protocol::VerifyMode;
 use crate::sparse::SparseFileHandler;
-use crate::io_uring_engine::{IoUringCopyEngine, IoUringCopyStats};
 use copyd_protocol::{CopyEngine, ExistsAction};
 
 #[derive(Debug, Clone)]
@@ -71,7 +68,7 @@ impl FileCopyEngine {
         } else {
             match self.engine_type {
                 CopyEngine::Auto => self.auto_copy(source, destination, options).await?,
-                // CopyEngine::IoUring => self.io_uring_copy(source, destination, options).await?,
+                CopyEngine::IoUring => self.auto_copy(source, destination, options).await?,
                 CopyEngine::CopyFileRange => self.copy_file_range_copy(source, destination, options).await?,
                 CopyEngine::Sendfile => self.sendfile_copy(source, destination, options).await?,
                 CopyEngine::Reflink => self.reflink_copy(source, destination, options).await?,
@@ -162,54 +159,6 @@ impl FileCopyEngine {
         self.read_write_copy(source, destination, options).await
     }
 
-    // async fn io_uring_copy(&self, source: &Path, destination: &Path, options: &CopyOptions) -> Result<u64> {
-    //     info!("Using io_uring for high-performance async I/O");
-        
-    //     // For now, check if io_uring is available and fall back if not
-    //     // This is a simplified implementation - a full implementation would use
-    //     // the io-uring crate for true async kernel I/O
-    //     match self.try_io_uring_copy(source, destination, options).await {
-    //         Ok(bytes) => Ok(bytes),
-    //         Err(e) => {
-    //             warn!("io_uring failed: {}, falling back to copy_file_range", e);
-    //             self.copy_file_range_copy(source, destination, options).await
-    //         }
-    //     }
-    // }
-
-    // async fn try_io_uring_copy(&self, source: &Path, destination: &Path, options: &CopyOptions) -> Result<u64> {
-    //     info!("Attempting io_uring high-performance async I/O");
-        
-    //     // Check if io_uring is available
-    //     if !IoUringCopyEngine::is_io_uring_available() {
-    //         return Err(anyhow::anyhow!("io_uring not available on this system"));
-    //     }
-
-    //     let queue_depth = 128; // Configurable queue depth for high concurrency
-    //     let buffer_size = options.block_size.unwrap_or(1024 * 1024); // 1MB default
-        
-    //     let mut io_uring_engine = IoUringCopyEngine::new(queue_depth, Some(buffer_size as usize))
-    //         .with_context(|| "Failed to create io_uring engine")?;
-
-    //     let stats = io_uring_engine.copy_file_async(source, destination, options.max_rate_bps).await
-    //         .with_context(|| "io_uring copy operation failed")?;
-
-    //     info!("io_uring copy completed successfully: {}", stats);
-
-    //     // Verify the result matches expectations
-    //     if stats.bytes_read != stats.bytes_written {
-    //         return Err(anyhow::anyhow!(
-    //             "io_uring copy size mismatch: read {} bytes, wrote {} bytes",
-    //             stats.bytes_read, stats.bytes_written
-    //         ));
-    //     }
-
-    //     debug!("io_uring performance: {} read ops, {} write ops, queue depth {}",
-    //            stats.read_ops, stats.write_ops, stats.queue_depth);
-
-    //     Ok(stats.bytes_read)
-    // }
-
     #[cfg(unix)]
     async fn copy_file_range_copy(&self, source: &Path, destination: &Path, options: &CopyOptions) -> Result<u64> {
         info!("Using copy_file_range for high-performance copying");
@@ -225,7 +174,6 @@ impl FileCopyEngine {
         let file_size = source_metadata.len();
         
         let mut total_copied = 0u64;
-        let mut offset = 0i64;
         let chunk_size = options.block_size.unwrap_or(4 * 1024 * 1024) as usize; // Default 4MB chunks
         
         while total_copied < file_size {
@@ -287,9 +235,6 @@ impl FileCopyEngine {
         
         let dest_file = std::fs::File::create(destination)
             .with_context(|| format!("Failed to create destination file: {:?}", destination))?;
-
-        let source_fd = source_file.as_raw_fd();
-        let dest_fd = dest_file.as_raw_fd();
         
         // Get source file size
         let source_metadata = source_file.metadata()?;
@@ -490,7 +435,7 @@ impl FileCopyEngine {
 
         // Copy timestamps using utimensat system call
         {
-            use nix::sys::stat::utimensat;
+            use nix::sys::stat::{utimensat, UtimensatFlags};
             use nix::sys::time::{TimeSpec};
             
             let atime = metadata.accessed().unwrap_or_else(|_| metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH));
@@ -499,7 +444,7 @@ impl FileCopyEngine {
             let atime_spec = TimeSpec::from(atime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             let mtime_spec = TimeSpec::from(mtime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             
-            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, None) {
+            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, UtimensatFlags::empty()) {
                 warn!("Could not set timestamps for {:?}: {}", destination, e);
             }
         }

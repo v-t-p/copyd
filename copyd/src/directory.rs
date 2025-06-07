@@ -204,7 +204,7 @@ impl DirectoryHandler {
         // Simple sparse file detection: compare allocated blocks vs file size
         // This is a heuristic - actual sparse detection would use FIEMAP ioctl
         let file_size = metadata.len();
-        let block_size = 4096u64; // Typical block size
+        let _block_size = 4096u64; // Typical block size
         let blocks = metadata.blocks();
         let allocated_size = blocks * 512; // stat.st_blocks is in 512-byte units
         
