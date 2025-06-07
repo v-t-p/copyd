@@ -1,7 +1,6 @@
 use anyhow::{Result, Context};
 use std::path::Path;
 use sha2::{Sha256, Digest};
-use md5::Md5 as Md5Hasher;
 use tokio::io::AsyncReadExt;
 use tracing::{info, debug};
 

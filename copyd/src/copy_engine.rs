@@ -5,8 +5,6 @@ use std::os::unix::fs::MetadataExt;
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd};
 use tracing::{info, debug, warn};
-use tokio::fs::File;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[cfg(unix)]
 use nix::fcntl::copy_file_range;
 #[cfg(unix)]
@@ -435,7 +433,7 @@ impl FileCopyEngine {
 
         // Copy timestamps using utimensat system call
         {
-            use nix::sys::stat::{utimensat};
+            use nix::sys::stat::{utimensat, UtimensatFlags};
             use nix::sys::time::{TimeSpec};
             
             let atime = metadata.accessed().unwrap_or_else(|_| metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH));
@@ -444,7 +442,7 @@ impl FileCopyEngine {
             let atime_spec = TimeSpec::from(atime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             let mtime_spec = TimeSpec::from(mtime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             
-            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, None) {
+            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, UtimensatFlags::empty()) {
                 warn!("Could not set timestamps for {:?}: {}", destination, e);
             }
         }
