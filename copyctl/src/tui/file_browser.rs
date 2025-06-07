@@ -22,7 +22,6 @@ pub struct FileEntry {
     pub path: PathBuf,
     pub is_dir: bool,
     pub size: u64,
-    pub modified: std::time::SystemTime,
     pub permissions: String,
 }
 
@@ -41,7 +40,6 @@ impl FileEntry {
             path: path.to_path_buf(),
             is_dir: metadata.is_dir(),
             size: metadata.len(),
-            modified: metadata.modified().unwrap_or(std::time::UNIX_EPOCH),
             permissions,
         })
     }
@@ -86,7 +84,6 @@ impl FilePane {
                 path: parent.to_path_buf(),
                 is_dir: true,
                 size: 0,
-                modified: std::time::UNIX_EPOCH,
                 permissions: "755".to_string(),
             });
         }

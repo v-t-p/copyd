@@ -8,9 +8,9 @@ use tracing::{info, debug, warn};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[cfg(unix)]
-use nix::fcntl::{copy_file_range, sendfile, CopyFileRangeFlags};
+use nix::fcntl::copy_file_range;
 #[cfg(unix)]
-use nix::sys::stat;
+use nix::sys::sendfile::sendfile;
 #[cfg(unix)]
 use nix::unistd;
 use std::time::SystemTime;
@@ -217,15 +217,13 @@ impl FileCopyEngine {
         
         let dest_file = std::fs::File::create(destination)
             .with_context(|| format!("Failed to create destination file: {:?}", destination))?;
-
-        let source_fd = source_file.as_raw_fd();
-        let dest_fd = dest_file.as_raw_fd();
         
         // Get source file size
         let source_metadata = source_file.metadata()?;
         let file_size = source_metadata.len();
         
         let mut total_copied = 0u64;
+        let mut offset = 0i64;
         let chunk_size = options.block_size.unwrap_or(4 * 1024 * 1024) as usize; // Default 4MB chunks
         
         while total_copied < file_size {
@@ -234,12 +232,11 @@ impl FileCopyEngine {
             
             // Use copy_file_range system call
             match copy_file_range(
-                source_fd,
-                Some(&mut (total_copied as off_t)),
-                dest_fd, 
-                Some(&mut (total_copied as off_t)),
-                copy_size,
-                CopyFileRangeFlags::empty()
+                &source_file,
+                Some(&mut offset),
+                &dest_file, 
+                Some(&mut offset),
+                copy_size
             ) {
                 Ok(bytes_copied) => {
                     if bytes_copied == 0 {
@@ -294,6 +291,7 @@ impl FileCopyEngine {
         let file_size = source_metadata.len();
         
         let mut total_copied = 0u64;
+        let mut offset = 0i64;
         let chunk_size = options.block_size.unwrap_or(1024 * 1024) as usize; // Default 1MB chunks
         
         while total_copied < file_size {
@@ -301,7 +299,7 @@ impl FileCopyEngine {
             let copy_size = std::cmp::min(remaining, chunk_size as u64) as usize;
             
             // Use sendfile system call
-            match sendfile(dest_fd, source_fd, Some(&mut (total_copied as off_t)), copy_size) {
+            match sendfile(dest_fd, source_fd, Some(&mut offset), copy_size) {
                 Ok(bytes_copied) => {
                     if bytes_copied == 0 {
                         break; // EOF reached
@@ -488,7 +486,7 @@ impl FileCopyEngine {
         // Copy timestamps using utimensat system call
         {
             use nix::sys::stat::utimensat;
-            use nix::sys::time::{TimeSpec, TimeValLike};
+            use nix::sys::time::{TimeSpec};
             
             let atime = metadata.accessed().unwrap_or_else(|_| metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH));
             let mtime = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
@@ -496,7 +494,7 @@ impl FileCopyEngine {
             let atime_spec = TimeSpec::from(atime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             let mtime_spec = TimeSpec::from(mtime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             
-            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, nix::sys::stat::UtimensatFlags::empty()) {
+            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, None) {
                 warn!("Could not set timestamps for {:?}: {}", destination, e);
             }
         }
@@ -668,11 +666,11 @@ impl FileCopyEngine {
             info!("  - Extended attributes");
         }
 
-        if options.verify > 0 {
+        if options.verify != VerifyMode::None {
             let verify_type = match options.verify {
-                1 => "size check",
-                2 => "MD5 checksum",
-                3 => "SHA256 checksum",
+                VerifyMode::Size => "size check",
+                VerifyMode::Md5 => "MD5 checksum",
+                VerifyMode::Sha256 => "SHA256 checksum",
                 _ => "size check (default)",
             };
             info!("Would verify integrity with: {}", verify_type);

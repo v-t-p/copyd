@@ -1,7 +1,11 @@
+use crate::metrics::PerformanceMetrics;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
-use tracing::{info, warn, debug};
+use tracing::debug;
+
+#[cfg(target_os = "linux")]
+use procfs::process::Process;
 
 /// Performance metrics collector
 #[derive(Debug, Clone)]
@@ -138,10 +142,12 @@ impl PerformanceProfiler {
 
             // Keep only recent samples (last 100)
             if metrics.memory_samples.len() > 100 {
-                metrics.memory_samples.drain(..metrics.memory_samples.len() - 100);
+                let to_drain = metrics.memory_samples.len() - 100;
+                metrics.memory_samples.drain(..to_drain);
             }
             if metrics.cpu_samples.len() > 100 {
-                metrics.cpu_samples.drain(..metrics.cpu_samples.len() - 100);
+                let to_drain = metrics.cpu_samples.len() - 100;
+                metrics.cpu_samples.drain(..to_drain);
             }
 
             debug!("System metrics: {}MB memory, {:.1}% CPU",

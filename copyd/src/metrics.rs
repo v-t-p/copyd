@@ -62,10 +62,18 @@ impl Metrics {
         self.jobs_active.inc();
     }
 
+    pub fn record_file_copied(&self, bytes_copied: u64, duration_secs: f64) {
+        self.bytes_copied_total.inc_by(bytes_copied as f64);
+        if duration_secs > 0.0 {
+            let throughput = bytes_copied as f64 / duration_secs;
+            self.throughput_mbps.set(throughput);
+        }
+    }
+
     pub fn record_job_completed(&self, bytes_copied: u64, duration_secs: f64) {
         self.jobs_completed.inc();
         self.jobs_active.dec();
-        self.bytes_copied_total.inc_by(bytes_copied);
+        self.bytes_copied_total.inc_by(bytes_copied as f64);
         self.copy_duration.observe(duration_secs);
     }
 

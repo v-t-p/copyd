@@ -1,4 +1,3 @@
-use anyhow::Context;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -147,6 +146,46 @@ pub enum CopydError {
 
     #[error("Monitoring error: {reason}")]
     MonitoringError { reason: String },
+
+    #[error("Configuration error: {0}")]
+    Config(#[from] toml::de::Error),
+
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Filesystem error on path {path:?}: {source}")]
+    Filesystem {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("Job '{0}' not found")]
+    JobNotFound(String),
+
+    #[error("Cross-device link not allowed from {source:?} to {destination:?}")]
+    CrossDevice { source: PathBuf, destination: PathBuf },
+
+    #[error("Verification failed for {0}: {1}")]
+    Verification(PathBuf, String),
+
+    #[error("Checkpoint error: {0}")]
+    Checkpoint(String),
+
+    #[error("Security violation: {0}")]
+    Security(String),
+
+    #[error("Daemon connection error: {0}")]
+    DaemonConnection(String),
+
+    #[error("RPC error: {0}")]
+    Rpc(String),
+    
+    #[error("Encryption error: {0}")]
+    Encryption(String),
+
+    #[error("Feature not supported: {0}")]
+    Unsupported(String),
 }
 
 impl From<prometheus::Error> for CopydError {

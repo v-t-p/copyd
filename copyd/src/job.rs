@@ -1,16 +1,15 @@
 use copyd_protocol::*;
-use crate::copy_engine::{CopyEngine, CopyOptions, FileCopyEngine, get_copy_engine};
-use crate::directory::{DirectoryHandler, DirectoryTraversal, FileEntry};
-use crate::checkpoint::{CheckpointManager, JobCheckpoint, FileCheckpoint, create_file_id};
-use crate::regex_rename::{RegexRenamer, RegexTransformPreview};
+use crate::copy_engine::{CopyOptions, FileCopyEngine};
+use crate::directory::{DirectoryHandler, DirectoryTraversal};
+use crate::checkpoint::{CheckpointManager, JobCheckpoint};
 use anyhow::{Result, Context};
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{SystemTime, Instant};
+use std::time::Instant;
 use tokio::sync::{RwLock, mpsc, Semaphore};
-use tokio::time::{interval, Duration};
-use tracing::{info, warn, error, debug};
+use tokio::time::Duration;
+use tracing::{info, error};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
@@ -267,17 +266,18 @@ impl JobManager {
                 let jobs = self.jobs.clone();
                 let event_sender = self.event_sender.clone();
                 let active_jobs = self.active_jobs.clone();
+                let job_id_clone = job_id.clone();
                 
                 let handle = tokio::spawn(async move {
                     let _permit = permit; // Hold permit for duration of job
                     
                     // Execute the job
-                    if let Err(e) = Self::execute_job(&job_id, jobs.clone(), event_sender).await {
-                        error!("Job {} failed: {}", job_id, e);
+                    if let Err(e) = Self::execute_job(&job_id_clone, jobs.clone(), event_sender).await {
+                        error!("Job {} failed: {}", job_id_clone, e);
                         
                         // Update job status to failed
                         let mut jobs_guard = jobs.write().await;
-                        if let Some(job) = jobs_guard.get_mut(&job_id) {
+                        if let Some(job) = jobs_guard.get_mut(&job_id_clone) {
                             job.set_status(JobStatus::Failed);
                             job.add_log(format!("Job failed: {}", e));
                         }
@@ -285,7 +285,7 @@ impl JobManager {
                     
                     // Remove from active jobs
                     let mut active = active_jobs.write().await;
-                    active.remove(&job_id);
+                    active.remove(&job_id_clone);
                 });
 
                 let mut active = self.active_jobs.write().await;
@@ -328,7 +328,7 @@ impl JobManager {
             &destination, 
             &options, 
             jobs.clone(), 
-            &event_sender
+            event_sender
         ).await;
 
         // Update final job status
@@ -368,7 +368,7 @@ impl JobManager {
         sources: &[PathBuf],
         destination: &Path,
         options: &JobOptions,
-        jobs: Arc<RwLock<HashMap<String, Job>>>,
+        _jobs: Arc<RwLock<HashMap<String, Job>>>,
         event_sender: &mpsc::UnboundedSender<JobEvent>,
     ) -> Result<()> {
         let copy_options = CopyOptions {
@@ -385,39 +385,43 @@ impl JobManager {
         };
 
         let copy_engine = FileCopyEngine::new(options.engine);
-        let dir_handler = DirectoryHandler::new(copy_engine, copy_options);
 
-        // This part needs to be carefully orchestrated to handle events
-        // and update progress.
-        // For simplicity, let's assume a basic traversal for now.
-        for source_path in sources {
-            let traversal = DirectoryTraversal::new(
-                vec![source_path.clone()], 
-                destination.to_path_buf(), 
-                options.recursive
-            );
-            
-            for file_entry in traversal {
-                let dest_path = file_entry.destination_path.clone();
-                match dir_handler.copy_file_entry(&file_entry).await {
-                    Ok(bytes_copied) => {
-                        event_sender.send(JobEvent::FileCompleted {
-                            job_id: job_id.to_string(),
+        // 1. Analyze sources to get a plan of action
+        let traversal = DirectoryHandler::analyze_sources(sources, destination, options.recursive, options.preserve_links).await?;
+
+        // 2. Create all directories first
+        DirectoryHandler::create_directories(&traversal.directories).await?;
+
+        // 3. Copy all regular files
+        for file_entry in traversal.files {
+            let dest_path = file_entry.dest_path.clone();
+            match copy_engine.copy_file(&file_entry.source_path, &dest_path, &copy_options).await {
+                Ok(bytes_copied) => {
+                    let _ = event_sender.send(JobEvent {
+                        job_id: Some(JobId { uuid: job_id.to_string() }),
+                        event_type: Some(job_event::EventType::FileCompleted(FileCompletedEvent {
                             file_path: dest_path.to_string_lossy().to_string(),
                             bytes_copied,
-                        })?;
-                    }
-                    Err(e) => {
-                        event_sender.send(JobEvent::FileError {
-                            job_id: job_id.to_string(),
+                        })),
+                    });
+                }
+                Err(e) => {
+                     let _ = event_sender.send(JobEvent {
+                        job_id: Some(JobId { uuid: job_id.to_string() }),
+                        event_type: Some(job_event::EventType::FileError(FileErrorEvent {
                             file_path: dest_path.to_string_lossy().to_string(),
                             error: e.to_string(),
-                        })?;
-                    }
+                        })),
+                    });
                 }
             }
         }
         
+        // 4. Create symlinks if needed
+        if options.preserve_links {
+            DirectoryHandler::create_symlinks(&traversal.symlinks).await?;
+        }
+
         Ok(())
     }
 

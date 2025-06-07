@@ -1,12 +1,10 @@
 use crate::config::Config;
-use crate::job::{JobManager, Job};
+use crate::job::{JobManager};
 use crate::metrics::Metrics;
-use crate::protocol::*;
+use copyd_protocol::*;
 use anyhow::{Result, Context};
-use std::sync::Arc;
 use std::time::Instant;
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::mpsc;
 use tracing::{info, error, debug, warn};
 
 pub struct Daemon {
@@ -124,8 +122,8 @@ impl Daemon {
     }
 
     async fn process_request(&self, request: Request) -> Response {
-        use request::RequestType;
-        use response::ResponseType;
+        use copyd_protocol::request::RequestType;
+        use copyd_protocol::response::ResponseType;
 
         let response_type = match request.request_type {
             Some(RequestType::CreateJob(req)) => {
@@ -308,7 +306,7 @@ impl Daemon {
                     async move {
                         if req.uri().path() == "/metrics" {
                             match metrics.export() {
-                                Ok(body) => Ok(hyper::Response::new(hyper::Body::from(body))),
+                                Ok(body) => Ok::<_, Infallible>(hyper::Response::new(hyper::Body::from(body))),
                                 Err(e) => {
                                     error!("Failed to export metrics: {}", e);
                                     Ok(hyper::Response::builder()

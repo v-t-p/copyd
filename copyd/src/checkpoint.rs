@@ -1,12 +1,12 @@
 use anyhow::{Result, Context};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tracing::{info, debug, warn, error};
-use uuid::Uuid;
+use tracing::{info, debug, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileCheckpoint {

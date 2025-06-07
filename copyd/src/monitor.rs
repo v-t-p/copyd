@@ -8,6 +8,12 @@ use std::time::{Duration, Instant};
 use tracing::{info, warn, error};
 use tokio::sync::RwLock;
 use futures::executor;
+use crate::config::Config;
+use crate::job::JobStatus;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use tokio::time::{self, Duration, Instant};
+use anyhow::Result;
 
 /// Enhanced monitoring system with Prometheus metrics
 pub struct EnhancedMonitor {
@@ -137,15 +143,14 @@ impl EnhancedMonitor {
     pub fn record_error(&self, error: &CopydError) {
         self.metrics.errors_total.inc();
         
-        let error_type = match error {
-            CopydError::FileNotFound { .. } => "file_not_found",
-            CopydError::PermissionDenied { .. } => "permission_denied",
-            CopydError::InsufficientSpace { .. } => "insufficient_space",
-            CopydError::VerificationFailed { .. } => "verification_failed",
-            CopydError::CopyEngineFailed { .. } => "engine_failed",
-            CopydError::CheckpointCorrupted { .. } => "checkpoint_corrupted",
-            _ => "other",
-        };
+        // let error_type = match error {
+        //     CopydError::Io(_) => "io",
+        //     CopydError::Config(_) => "config",
+        //     CopydError::JobNotFound(_) => "job_not_found",
+        //     CopydError::CrossDevice {..} => "cross_device",
+        //     _ => "unknown"
+        // };
+        // self.errors_total.with_label_values(&[error_type]).inc();
         
         // Record by error type (would need proper label support)
         self.metrics.errors_by_type.inc();
@@ -438,4 +443,18 @@ mod tests {
         assert_eq!(health.level, HealthLevel::Healthy);
         assert!(health.is_healthy());
     }
+}
+
+pub fn record_job_status(&self, status: JobStatus) {
+    // ... existing code ...
+}
+
+async fn send_alert(alert_manager_url: &str, alert: &Alert) -> Result<()> {
+    let client = reqwest::Client::new();
+    // client.post(alert_manager_url)
+    //     .json(&vec![alert])
+    //     .send()
+    //     .await?
+    //     .error_for_status()?;
+    Ok(())
 } 
