@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     // Handle systemd notifications
     if let Ok(_) = std::env::var("NOTIFY_SOCKET") {
         // Send ready notification to systemd
-        systemd::daemon::notify(false, [(systemd::daemon::STATE_READY, "1")].iter())?;
+        systemd::daemon::notify(false, [(systemd::daemon::STATE_READY, &String::from("1"))].iter())?;
         info!("Notified systemd that daemon is ready");
 
         // Start watchdog if enabled
@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
                 loop {
                     ticker.tick().await;
                     if daemon_clone.is_healthy().await {
-                        let _ = systemd::daemon::notify(false, [(systemd::daemon::STATE_WATCHDOG, "1")].iter());
+                        let _ = systemd::daemon::notify(false, [(systemd::daemon::STATE_WATCHDOG, &String::from("1"))].iter());
                     }
                 }
             });
@@ -67,7 +67,7 @@ async fn main() -> Result<()> {
         if let Ok(_) = std::env::var("NOTIFY_SOCKET") {
             let _ = systemd::daemon::notify(false, [
                 (systemd::daemon::STATE_STATUS, &format!("Failed: {}", e)),
-                (systemd::daemon::STATE_ERRNO, "1")
+                (systemd::daemon::STATE_ERRNO, &String::from("1"))
             ].iter());
         }
         return Err(e);
