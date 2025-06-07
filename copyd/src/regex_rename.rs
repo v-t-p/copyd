@@ -45,7 +45,7 @@ impl RegexRenamer {
             return Ok(base_destination.to_path_buf());
         }
 
-        let pattern = self.pattern.as_ref().unwrap();
+        let pattern = self.pattern.as_ref().expect("RegexRenamer::transform_path called without pattern");
         
         // Extract the filename for transformation
         let original_name = original_path.file_name()
@@ -91,9 +91,19 @@ impl RegexRenamer {
         let mut previews = Vec::new();
 
         for source_path in source_paths {
-            let original_name = source_path.file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("<invalid>");
+            let original_name = match source_path.file_name().and_then(|n| n.to_str()) {
+                Some(name) => name,
+                None => {
+                    previews.push(RegexTransformPreview {
+                        source_path: source_path.clone(),
+                        original_name: "<invalid>".into(),
+                        new_name: "<invalid>".into(),
+                        new_path: base_destination.to_path_buf(),
+                        would_change: false,
+                    });
+                    continue;
+                }
+            };
 
             let (new_name, would_change) = if let Some(pattern) = &self.pattern {
                 let transformed = pattern.replace_all(original_name, &self.replacement);

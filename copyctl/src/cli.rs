@@ -1,82 +1,37 @@
 use crate::client::CopyClient;
-use crate::protocol::*;
+use copyd_protocol::*;
 use anyhow::Result;
-use std::path::PathBuf;
 use indicatif::{ProgressBar, ProgressStyle};
 use console::style;
 use tokio::time::{interval, Duration};
 
-fn parse_verify_mode(verify: &str) -> i32 {
-    match verify.to_lowercase().as_str() {
-        "none" => VerifyMode::None as i32,
-        "size" => VerifyMode::Size as i32,
-        "md5" => VerifyMode::Md5 as i32,
-        "sha256" => VerifyMode::Sha256 as i32,
-        _ => VerifyMode::None as i32,
-    }
-}
-
-fn parse_exists_action(exists: &str) -> i32 {
-    match exists.to_lowercase().as_str() {
-        "overwrite" => ExistsAction::Overwrite as i32,
-        "skip" => ExistsAction::Skip as i32,
-        "serial" => ExistsAction::Serial as i32,
-        _ => ExistsAction::Overwrite as i32,
-    }
-}
-
-fn parse_copy_engine(engine: &str) -> i32 {
-    match engine.to_lowercase().as_str() {
-        "auto" => CopyEngine::Auto as i32,
-        "io_uring" => CopyEngine::IoUring as i32,
-        "copy_file_range" => CopyEngine::CopyFileRange as i32,
-        "sendfile" => CopyEngine::Sendfile as i32,
-        "reflink" => CopyEngine::Reflink as i32,
-        "read_write" => CopyEngine::ReadWrite as i32,
-        _ => CopyEngine::Auto as i32,
-    }
-}
-
 pub async fn handle_copy(
     client: CopyClient,
-    sources: Vec<PathBuf>,
-    destination: PathBuf,
-    recursive: bool,
-    preserve: bool,
-    preserve_links: bool,
-    preserve_sparse: bool,
-    verify: String,
-    exists: String,
-    priority: u32,
-    max_rate: Option<u64>,
-    engine: String,
-    dry_run: bool,
-    regex_rename_match: Option<String>,
-    regex_rename_replace: Option<String>,
-    block_size: Option<u64>,
-    compress: bool,
-    encrypt: bool,
-    monitor: bool,
+    args: crate::CopyMoveArgs,
     format: &str,
 ) -> Result<()> {
     let request = CreateJobRequest {
-        sources: sources.iter().map(|p| p.to_string_lossy().to_string()).collect(),
-        destination: destination.to_string_lossy().to_string(),
-        recursive,
-        preserve_metadata: preserve,
-        preserve_links,
-        preserve_sparse,
-        verify: parse_verify_mode(&verify),
-        exists_action: parse_exists_action(&exists),
-        priority,
-        max_rate_bps: max_rate.map(|r| r * 1024 * 1024).unwrap_or(0), // Convert MB/s to bytes/s
-        engine: parse_copy_engine(&engine),
-        dry_run,
-        regex_rename_match: regex_rename_match.unwrap_or_default(),
-        regex_rename_replace: regex_rename_replace.unwrap_or_default(),
-        block_size: block_size.unwrap_or(0),
-        compress,
-        encrypt,
+        sources: args.sources.iter().map(|p| p.to_string_lossy().to_string()).collect(),
+        destination: args.destination.to_string_lossy().to_string(),
+        recursive: args.recursive,
+        preserve_metadata: args.preserve,
+        preserve_links: args.preserve_links,
+        preserve_sparse: args.preserve_sparse,
+        verify: args.verify as i32,
+        exists_action: args.exists as i32,
+        priority: args.priority,
+        max_rate_bps: match args.max_rate {
+            Some(r) => r.checked_mul(1024 * 1024)
+                            .ok_or_else(|| anyhow::anyhow!("--max-rate is too large"))?,
+            None => 0,
+        },
+        engine: args.engine as i32,
+        dry_run: args.dry_run,
+        regex_rename_match: args.regex_rename_match.unwrap_or_default(),
+        regex_rename_replace: args.regex_rename_replace.unwrap_or_default(),
+        block_size: args.block_size.unwrap_or(0),
+        compress: args.compress,
+        encrypt: args.encrypt,
     };
 
     let job_id = client.create_job(request).await?;
@@ -93,7 +48,7 @@ pub async fn handle_copy(
         );
     }
 
-    if monitor {
+    if args.monitor {
         monitor_job(&client, &job_id, format).await?;
     }
 
@@ -102,47 +57,22 @@ pub async fn handle_copy(
 
 pub async fn handle_move(
     client: CopyClient,
-    sources: Vec<PathBuf>,
-    destination: PathBuf,
-    recursive: bool,
-    preserve: bool,
-    preserve_links: bool,
-    preserve_sparse: bool,
-    verify: String,
-    exists: String,
-    priority: u32,
-    max_rate: Option<u64>,
-    engine: String,
-    dry_run: bool,
-    regex_rename_match: Option<String>,
-    regex_rename_replace: Option<String>,
-    block_size: Option<u64>,
-    compress: bool,
-    encrypt: bool,
-    monitor: bool,
+    args: crate::CopyMoveArgs,
     format: &str,
 ) -> Result<()> {
-    // For move operations, we first copy then delete
-    // TODO: Implement proper move semantics
     println!("{} Move operation will copy then delete source files", style("⚠").yellow());
     
-    handle_copy(
-        client, sources, destination, recursive, preserve, preserve_links,
-        preserve_sparse, verify, exists, priority, max_rate, engine, dry_run,
-        regex_rename_match, regex_rename_replace, block_size, compress, encrypt,
-        monitor, format
-    ).await
+    handle_copy(client, args, format).await
 }
 
 pub async fn handle_list(
     client: CopyClient,
     completed: bool,
-    json: bool,
     format: &str,
 ) -> Result<()> {
     let jobs = client.list_jobs(completed).await?;
 
-    if json || format == "json" {
+    if format == "json" {
         println!("{}", serde_json::to_string_pretty(&jobs)?);
     } else {
         if jobs.is_empty() {
@@ -155,15 +85,7 @@ pub async fn handle_list(
 
         for job in jobs {
             let job_id = job.job_id.map(|j| j.uuid).unwrap_or_default();
-            let status = match job.progress.as_ref().map(|p| p.status).unwrap_or(0) {
-                0 => style("PENDING").yellow(),
-                1 => style("RUNNING").green(),
-                2 => style("PAUSED").blue(),
-                3 => style("COMPLETED").green(),
-                4 => style("FAILED").red(),
-                5 => style("CANCELLED").red(),
-                _ => style("UNKNOWN").dim(),
-            };
+            let status = styled_job_status(job.progress.as_ref().map(|p| p.status).unwrap_or(0));
 
             let source = job.sources.first().map(|s| {
                 if s.len() > 18 {
@@ -189,8 +111,9 @@ pub async fn handle_list(
                 "N/A".to_string()
             };
 
+            let short_id = job_id.get(..8).unwrap_or(&job_id);
             println!("{:<36} {:<8} {:<20} {:<20} {:<10}",
-                style(&job_id[..8]).dim(),
+                style(short_id).dim(),
                 status,
                 source,
                 destination,
@@ -205,7 +128,6 @@ pub async fn handle_list(
 pub async fn handle_status(
     client: CopyClient,
     job_id: String,
-    json: bool,
     monitor: bool,
     format: &str,
 ) -> Result<()> {
@@ -214,7 +136,7 @@ pub async fn handle_status(
     } else {
         let status = client.get_job_status(&job_id).await?;
 
-        if json || format == "json" {
+        if format == "json" {
             println!("{}", serde_json::to_string_pretty(&status)?);
         } else {
             print_job_status(&status);
@@ -293,12 +215,11 @@ pub async fn handle_resume(
 pub async fn handle_stats(
     client: CopyClient,
     days: i32,
-    json: bool,
     format: &str,
 ) -> Result<()> {
     let stats = client.get_stats(days).await?;
 
-    if json || format == "json" {
+    if format == "json" {
         println!("{}", serde_json::to_string_pretty(&stats)?);
     } else {
         println!("{} Statistics for the last {} days:", style("📊").blue(), days);
@@ -375,14 +296,16 @@ async fn monitor_job(client: &CopyClient, job_id: &str, format: &str) -> Result<
                     println!("{}", serde_json::to_string_pretty(&status)?);
                     
                     if let Some(progress) = &status.progress {
-                        match progress.status {
-                            3 | 4 | 5 => break, // Completed, Failed, or Cancelled
+                        match JobStatus::from_i32(progress.status) {
+                            Some(JobStatus::Completed) | Some(JobStatus::Failed) | Some(JobStatus::Cancelled) => break,
                             _ => {}
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("Error getting job status: {}", e);
+                    println!("{}", serde_json::json!({
+                        "error": format!("Error getting job status: {}", e)
+                    }));
                     break;
                 }
             }
@@ -393,9 +316,10 @@ async fn monitor_job(client: &CopyClient, job_id: &str, format: &str) -> Result<
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {percent}% ({bytes}/{total_bytes}) {msg}")
-                .unwrap()
+                .expect("valid indicatif progress bar template")
                 .progress_chars("#>-")
         );
+        pb.set_length(100);
 
         let mut interval = interval(Duration::from_secs(1));
         loop {
@@ -411,7 +335,6 @@ async fn monitor_job(client: &CopyClient, job_id: &str, format: &str) -> Result<
                         };
 
                         pb.set_position(percent);
-                        pb.set_length(100);
                         
                         let msg = if progress.throughput_mbps > 0.0 {
                             format!("{:.1} MB/s, ETA: {}s", 
@@ -422,16 +345,16 @@ async fn monitor_job(client: &CopyClient, job_id: &str, format: &str) -> Result<
                         };
                         pb.set_message(msg);
 
-                        match progress.status {
-                            3 => {
+                        match JobStatus::from_i32(progress.status) {
+                            Some(JobStatus::Completed) => {
                                 pb.finish_with_message("Completed!");
                                 break;
                             }
-                            4 => {
+                            Some(JobStatus::Failed) => {
                                 pb.finish_with_message("Failed!");
                                 break;
                             }
-                            5 => {
+                            Some(JobStatus::Cancelled) => {
                                 pb.finish_with_message("Cancelled!");
                                 break;
                             }
@@ -458,15 +381,7 @@ fn print_job_status(status: &JobStatusResponse) {
     println!("{} Job Status: {}", style("📋").blue(), style(&job_id).cyan());
 
     if let Some(progress) = &status.progress {
-        let status_text = match progress.status {
-            0 => style("PENDING").yellow(),
-            1 => style("RUNNING").green(),
-            2 => style("PAUSED").blue(),
-            3 => style("COMPLETED").green(),
-            4 => style("FAILED").red(),
-            5 => style("CANCELLED").red(),
-            _ => style("UNKNOWN").dim(),
-        };
+        let status_text = styled_job_status(progress.status);
 
         println!("  Status: {}", status_text);
         
@@ -528,5 +443,18 @@ fn format_duration(seconds: i64) -> String {
         format!("{}m {}s", seconds / 60, seconds % 60)
     } else {
         format!("{}h {}m {}s", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
+    }
+}
+
+/// Convert a numeric `JobStatus` code into a coloured, human-readable string.
+fn styled_job_status(code: i32) -> console::StyledObject<&'static str> {
+    match JobStatus::from_i32(code) {
+        Some(JobStatus::Pending) => style("PENDING").yellow(),
+        Some(JobStatus::Running) => style("RUNNING").green(),
+        Some(JobStatus::Paused) => style("PAUSED").blue(),
+        Some(JobStatus::Completed) => style("COMPLETED").green(),
+        Some(JobStatus::Failed) => style("FAILED").red(),
+        Some(JobStatus::Cancelled) => style("CANCELLED").red(),
+        _ => style("UNKNOWN").dim(),
     }
 } 

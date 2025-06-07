@@ -19,6 +19,7 @@ thiserror.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
+copyd-protocol = { path = "../copyd-protocol" }
 
 # Linux-specific dependencies
 [target.'cfg(target_os = "linux")'.dependencies]

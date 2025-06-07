@@ -19,6 +19,7 @@ pub struct Config {
     pub enable_encryption: bool,
     pub io_uring_entries: u32,
     pub watchdog_enabled: bool,
+    pub checkpoint_dir: PathBuf,
 }
 
 impl Default for Config {
@@ -38,39 +39,35 @@ impl Default for Config {
             enable_encryption: false,
             io_uring_entries: 256,
             watchdog_enabled: true,
+            checkpoint_dir: PathBuf::from("/var/lib/copyd/checkpoints"),
         }
     }
 }
 
 impl Config {
     pub async fn load() -> Result<Self> {
-        let config_paths = [
-            PathBuf::from("/etc/copyd/copyd.toml"),
-            PathBuf::from("/usr/local/etc/copyd/copyd.toml"),
-            dirs::config_dir().map(|p| p.join("copyd/copyd.toml")),
-        ];
-
-        for path in config_paths.iter().filter_map(|p| p.as_ref()) {
-            if path.exists() {
-                let content = fs::read_to_string(path).await?;
+        let config_path = std::env::var("COPYD_CONFIG_PATH")
+            .unwrap_or_else(|_| "/etc/copyd/config.toml".to_string());
+        
+        match tokio::fs::read_to_string(&config_path).await {
+            Ok(content) => {
                 let config: Config = toml::from_str(&content)?;
-                return Ok(config);
+                Ok(config)
+            }
+            Err(_) => {
+                // If config file doesn't exist or fails to load, use defaults
+                warn!("Configuration file not found at {}. Using default settings.", config_path);
+                Ok(Config::default())
             }
         }
-
-        // Use default config if no file found
-        Ok(Config::default())
     }
 
     pub async fn ensure_directories(&self) -> Result<()> {
-        // Create socket directory
-        if let Some(socket_dir) = self.socket_path.parent() {
-            fs::create_dir_all(socket_dir).await?;
+        if let Some(parent) = self.socket_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
         }
-
-        // Create temp directory
-        fs::create_dir_all(&self.temp_dir).await?;
-
+        tokio::fs::create_dir_all(&self.temp_dir).await?;
+        tokio::fs::create_dir_all(&self.checkpoint_dir).await?;
         Ok(())
     }
 } 

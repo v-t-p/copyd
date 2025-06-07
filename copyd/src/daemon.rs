@@ -22,7 +22,10 @@ impl Daemon {
         config.ensure_directories().await?;
 
         // Initialize job manager
-        let (job_manager, _event_receiver) = JobManager::new(config.max_concurrent_jobs);
+        let (job_manager, _event_receiver) = JobManager::new(
+            config.max_concurrent_jobs,
+            config.checkpoint_dir.clone()
+        );
         
         // Initialize metrics
         let metrics = Metrics::new()?;
@@ -179,7 +182,17 @@ impl Daemon {
     }
 
     async fn handle_job_status(&self, request: JobStatusRequest) -> JobStatusResponse {
-        let job_id = request.job_id.map(|id| id.uuid).unwrap_or_default();
+        let job_id = match request.job_id {
+            Some(id) => id.uuid,
+            None => {
+                return JobStatusResponse {
+                    job_id: None,
+                    progress: None,
+                    error: "Missing job_id".to_string(),
+                    log_entries: vec![],
+                }
+            }
+        };
         
         match self.job_manager.get_job(&job_id).await {
             Some(job) => JobStatusResponse {

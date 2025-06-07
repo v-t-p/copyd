@@ -1,18 +1,25 @@
 use anyhow::{Result, Context};
 use std::path::Path;
+#[cfg(unix)]
 use std::os::unix::fs::{PermissionsExt, MetadataExt};
+#[cfg(unix)]
 use std::os::unix::io::{AsRawFd, RawFd};
 use tracing::{info, debug, warn};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+#[cfg(unix)]
 use nix::fcntl::{copy_file_range, sendfile};
+#[cfg(unix)]
 use nix::sys::stat;
+#[cfg(unix)]
 use nix::unistd;
 use std::time::SystemTime;
+#[cfg(unix)]
 use libc::{off_t};
 use crate::verify::{FileVerifier, VerifyMode};
 use crate::sparse::SparseFileHandler;
 use crate::io_uring_engine::{IoUringCopyEngine, IoUringCopyStats};
+use copyd_protocol::{CopyEngine, ExistsAction};
 
 // For now, define a simple copy engine interface
 // This will be expanded with io_uring, copy_file_range, etc.
@@ -32,8 +39,8 @@ pub struct CopyOptions {
     pub preserve_metadata: bool,
     pub preserve_links: bool,
     pub preserve_sparse: bool,
-    pub verify: i32,
-    pub exists_action: i32,
+    pub verify: VerifyMode,
+    pub exists_action: ExistsAction,
     pub max_rate_bps: Option<u64>,
     pub block_size: Option<u64>,
     pub dry_run: bool,
@@ -90,12 +97,11 @@ impl FileCopyEngine {
         }
 
         // Verify the copy if requested
-        let verify_mode = VerifyMode::from(options.verify);
-        if matches!(verify_mode, VerifyMode::Size | VerifyMode::Md5 | VerifyMode::Sha256) {
-            info!("Verifying copied file with {:?}", verify_mode);
+        if matches!(options.verify, VerifyMode::Size | VerifyMode::Md5 | VerifyMode::Sha256) {
+            info!("Verifying copied file with {:?}", options.verify);
             let verification_start = std::time::Instant::now();
             
-            match FileVerifier::verify_copy(source, destination, verify_mode).await {
+            match FileVerifier::verify_copy(source, destination, options.verify).await {
                 Ok(true) => {
                     let verification_time = verification_start.elapsed();
                     info!("Verification completed successfully in {:.2}s", verification_time.as_secs_f64());
@@ -214,6 +220,7 @@ impl FileCopyEngine {
         Ok(stats.bytes_read)
     }
 
+    #[cfg(unix)]
     async fn copy_file_range_copy(&self, source: &Path, destination: &Path, options: &CopyOptions) -> Result<u64> {
         info!("Using copy_file_range for high-performance copying");
         
@@ -275,6 +282,13 @@ impl FileCopyEngine {
         Ok(total_copied)
     }
 
+    #[cfg(not(unix))]
+    async fn copy_file_range_copy(&self, source: &Path, destination: &Path, options: &CopyOptions) -> Result<u64> {
+        warn!("copy_file_range is not supported on this platform, falling back to read/write");
+        self.read_write_copy(source, destination, options).await
+    }
+
+    #[cfg(unix)]
     async fn sendfile_copy(&self, source: &Path, destination: &Path, options: &CopyOptions) -> Result<u64> {
         info!("Using sendfile for zero-copy transfer");
         
@@ -329,6 +343,13 @@ impl FileCopyEngine {
         Ok(total_copied)
     }
 
+    #[cfg(not(unix))]
+    async fn sendfile_copy(&self, source: &Path, destination: &Path, options: &CopyOptions) -> Result<u64> {
+        warn!("sendfile is not supported on this platform, falling back to read/write");
+        self.read_write_copy(source, destination, options).await
+    }
+
+    #[cfg(unix)]
     async fn reflink_copy(&self, source: &Path, destination: &Path, options: &CopyOptions) -> Result<u64> {
         info!("Attempting reflink (COW) copy");
         
@@ -385,6 +406,12 @@ impl FileCopyEngine {
                 }
             }
         }
+    }
+
+    #[cfg(not(unix))]
+    async fn reflink_copy(&self, source: &Path, destination: &Path, options: &CopyOptions) -> Result<u64> {
+        warn!("reflink is not supported on this platform, falling back to read/write");
+        self.read_write_copy(source, destination, options).await
     }
 
     async fn read_write_copy(&self, source: &Path, destination: &Path, options: &CopyOptions) -> Result<u64> {
@@ -448,6 +475,7 @@ impl FileCopyEngine {
         Ok(total_bytes)
     }
 
+    #[cfg(unix)]
     async fn copy_metadata(&self, source: &Path, destination: &Path) -> Result<()> {
         let metadata = tokio::fs::metadata(source).await?;
         
@@ -495,6 +523,16 @@ impl FileCopyEngine {
         Ok(())
     }
 
+    #[cfg(not(unix))]
+    async fn copy_metadata(&self, source: &Path, destination: &Path) -> Result<()> {
+        warn!("Metadata preservation is not fully supported on this platform");
+        let source_metadata = tokio::fs::metadata(source).await?;
+        let dest_file = tokio::fs::File::open(destination).await?;
+        dest_file.set_permissions(source_metadata.permissions()).await?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
     async fn copy_xattrs(&self, source: &Path, destination: &Path) -> Result<()> {
         use std::ffi::CString;
         
@@ -571,6 +609,12 @@ impl FileCopyEngine {
             pos += name_end + 1;
         }
         
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    async fn copy_xattrs(&self, source: &Path, destination: &Path) -> Result<()> {
+        warn!("Extended attributes are not supported on this platform");
         Ok(())
     }
 
@@ -730,18 +774,4 @@ impl FileCopyEngine {
             }
         }
     }
-}
-
-pub async fn get_copy_engine(engine_type: i32) -> Result<FileCopyEngine> {
-    let engine = match engine_type {
-        0 => CopyEngine::Auto,
-        1 => CopyEngine::IoUring,
-        2 => CopyEngine::CopyFileRange,
-        3 => CopyEngine::Sendfile,
-        4 => CopyEngine::Reflink,
-        5 => CopyEngine::ReadWrite,
-        _ => CopyEngine::Auto,
-    };
-    
-    Ok(FileCopyEngine::new(engine))
 } 

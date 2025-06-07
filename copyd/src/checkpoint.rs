@@ -38,10 +38,7 @@ pub struct JobCheckpoint {
 
 impl JobCheckpoint {
     pub fn new(job_id: String, operation_type: String) -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = now_unix_secs();
 
         Self {
             job_id,
@@ -70,10 +67,7 @@ impl JobCheckpoint {
             let old_bytes = checkpoint.bytes_copied;
             checkpoint.bytes_copied = bytes_copied;
             checkpoint.checksum_partial = checksum;
-            checkpoint.updated_at = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
+            checkpoint.updated_at = now_unix_secs();
 
             // Update total progress
             self.bytes_completed = self.bytes_completed.saturating_sub(old_bytes) + bytes_copied;
@@ -116,10 +110,7 @@ impl JobCheckpoint {
     }
 
     fn update_timestamp(&mut self) {
-        self.updated_at = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        self.updated_at = now_unix_secs();
     }
 }
 
@@ -210,10 +201,7 @@ impl CheckpointManager {
     }
 
     pub async fn cleanup_old_checkpoints(&self, max_age_days: u64) -> Result<usize> {
-        let cutoff_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() - (max_age_days * 24 * 60 * 60);
+        let cutoff_time = now_unix_secs().saturating_sub(max_age_days * 24 * 60 * 60);
 
         let mut cleaned_count = 0;
         let mut entries = fs::read_dir(&self.checkpoint_dir).await
@@ -339,6 +327,14 @@ pub async fn can_resume_file(checkpoint: &FileCheckpoint) -> Result<bool> {
     }
 
     Ok(true)
+}
+
+/// Return the current UNIX epoch seconds, falling back to 0 on clock error (pre-1970).
+fn now_unix_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 #[cfg(test)]

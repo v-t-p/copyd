@@ -1,5 +1,9 @@
 [workspace]
-members = ["copyd", "copyctl"]
+members = [
+    "copyd",
+    "copyctl",
+    "copyd-protocol",
+]
 
 [workspace.dependencies]
 anyhow = "1.0"

@@ -23,6 +23,7 @@ uuid.workspace = true
 crossterm.workspace = true
 ratatui.workspace = true
 regex.workspace = true
+copyd-protocol = { path = "../copyd-protocol" }
 
 # Protocol and messaging
 prost = "0.12"

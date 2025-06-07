@@ -12,7 +12,6 @@ mod directory;
 mod sparse;
 mod verify;
 mod metrics;
-mod protocol;
 mod config;
 mod utils;
 mod checkpoint;

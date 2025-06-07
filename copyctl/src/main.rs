@@ -6,9 +6,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod client;
 mod tui;
 mod cli;
-mod protocol;
 
 use client::CopyClient;
+use copyd_protocol::{VerifyMode, ExistsAction, CopyEngine};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -30,117 +30,73 @@ struct Cli {
     command: Commands,
 }
 
+#[derive(clap::Args)]
+struct CopyMoveArgs {
+    /// Source files or directories
+    sources: Vec<PathBuf>,
+    /// Destination
+    destination: PathBuf,
+    /// Copy directories recursively
+    #[arg(short, long)]
+    recursive: bool,
+    /// Preserve metadata (permissions, timestamps, etc.)
+    #[arg(short, long)]
+    preserve: bool,
+    /// Preserve hard links
+    #[arg(long)]
+    preserve_links: bool,
+    /// Preserve sparse file regions
+    #[arg(long)]
+    preserve_sparse: bool,
+    /// Verification method
+    #[arg(long, default_value = "none")]
+    verify: VerifyMode,
+    /// What to do if destination exists
+    #[arg(long, default_value = "overwrite")]
+    exists: ExistsAction,
+    /// Job priority (higher = processed first)
+    #[arg(long, default_value = "100")]
+    priority: u32,
+    /// Maximum transfer rate in MB/s
+    #[arg(long)]
+    max_rate: Option<u64>,
+    /// Copy engine to use
+    #[arg(long, default_value = "auto")]
+    engine: CopyEngine,
+    /// Dry run - don't actually copy files
+    #[arg(long)]
+    dry_run: bool,
+    /// Regex pattern for renaming files
+    #[arg(long)]
+    regex_rename_match: Option<String>,
+    /// Replacement pattern for renaming files
+    #[arg(long)]
+    regex_rename_replace: Option<String>,
+    /// Block size for I/O operations
+    #[arg(long)]
+    block_size: Option<u64>,
+    /// Enable compression
+    #[arg(long)]
+    compress: bool,
+    /// Enable encryption
+    #[arg(long)]
+    encrypt: bool,
+    /// Monitor job progress
+    #[arg(short, long)]
+    monitor: bool,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Copy files or directories
     Copy {
-        /// Source files or directories
-        sources: Vec<PathBuf>,
-        /// Destination
-        destination: PathBuf,
-        /// Copy directories recursively
-        #[arg(short, long)]
-        recursive: bool,
-        /// Preserve metadata (permissions, timestamps, etc.)
-        #[arg(short, long)]
-        preserve: bool,
-        /// Preserve hard links
-        #[arg(long)]
-        preserve_links: bool,
-        /// Preserve sparse file regions
-        #[arg(long)]
-        preserve_sparse: bool,
-        /// Verification method (none, size, md5, sha256)
-        #[arg(long, default_value = "none")]
-        verify: String,
-        /// What to do if destination exists (overwrite, skip, serial)
-        #[arg(long, default_value = "overwrite")]
-        exists: String,
-        /// Job priority (higher = processed first)
-        #[arg(long, default_value = "100")]
-        priority: u32,
-        /// Maximum transfer rate in MB/s
-        #[arg(long)]
-        max_rate: Option<u64>,
-        /// Copy engine to use (auto, io_uring, copy_file_range, sendfile, reflink, read_write)
-        #[arg(long, default_value = "auto")]
-        engine: String,
-        /// Dry run - don't actually copy files
-        #[arg(long)]
-        dry_run: bool,
-        /// Regex pattern for renaming files
-        #[arg(long)]
-        regex_rename_match: Option<String>,
-        /// Replacement pattern for renaming files
-        #[arg(long)]
-        regex_rename_replace: Option<String>,
-        /// Block size for I/O operations
-        #[arg(long)]
-        block_size: Option<u64>,
-        /// Enable compression
-        #[arg(long)]
-        compress: bool,
-        /// Enable encryption
-        #[arg(long)]
-        encrypt: bool,
-        /// Monitor job progress
-        #[arg(short, long)]
-        monitor: bool,
+        #[command(flatten)]
+        args: CopyMoveArgs,
     },
     /// Move files or directories
     Move {
-        /// Source files or directories
-        sources: Vec<PathBuf>,
-        /// Destination
-        destination: PathBuf,
-        /// Copy directories recursively
-        #[arg(short, long)]
-        recursive: bool,
-        /// Preserve metadata (permissions, timestamps, etc.)
-        #[arg(short, long)]
-        preserve: bool,
-        /// Preserve hard links
-        #[arg(long)]
-        preserve_links: bool,
-        /// Preserve sparse file regions
-        #[arg(long)]
-        preserve_sparse: bool,
-        /// Verification method (none, size, md5, sha256)
-        #[arg(long, default_value = "none")]
-        verify: String,
-        /// What to do if destination exists (overwrite, skip, serial)
-        #[arg(long, default_value = "overwrite")]
-        exists: String,
-        /// Job priority (higher = processed first)
-        #[arg(long, default_value = "100")]
-        priority: u32,
-        /// Maximum transfer rate in MB/s
-        #[arg(long)]
-        max_rate: Option<u64>,
-        /// Copy engine to use (auto, io_uring, copy_file_range, sendfile, reflink, read_write)
-        #[arg(long, default_value = "auto")]
-        engine: String,
-        /// Dry run - don't actually move files
-        #[arg(long)]
-        dry_run: bool,
-        /// Regex pattern for renaming files
-        #[arg(long)]
-        regex_rename_match: Option<String>,
-        /// Replacement pattern for renaming files
-        #[arg(long)]
-        regex_rename_replace: Option<String>,
-        /// Block size for I/O operations
-        #[arg(long)]
-        block_size: Option<u64>,
-        /// Enable compression
-        #[arg(long)]
-        compress: bool,
-        /// Enable encryption
-        #[arg(long)]
-        encrypt: bool,
-        /// Monitor job progress
-        #[arg(short, long)]
-        monitor: bool,
+        #[command(flatten)]
+        args: CopyMoveArgs,
     },
     /// List jobs
     List {
@@ -215,30 +171,12 @@ async fn main() -> Result<()> {
 
     // Execute command
     match cli.command {
-        Commands::Copy { 
-            sources, destination, recursive, preserve, preserve_links, preserve_sparse,
-            verify, exists, priority, max_rate, engine, dry_run, 
-            regex_rename_match, regex_rename_replace, block_size, compress, encrypt, monitor 
-        } => {
-            cli::handle_copy(
-                client, sources, destination, recursive, preserve, preserve_links, 
-                preserve_sparse, verify, exists, priority, max_rate, engine, dry_run,
-                regex_rename_match, regex_rename_replace, block_size, compress, encrypt, 
-                monitor, &cli.format
-            ).await?;
+        Commands::Copy { args } => {
+            cli::handle_copy(client, args, &cli.format).await?;
         }
-        Commands::Move { 
-            sources, destination, recursive, preserve, preserve_links, preserve_sparse,
-            verify, exists, priority, max_rate, engine, dry_run, 
-            regex_rename_match, regex_rename_replace, block_size, compress, encrypt, monitor 
-        } => {
+        Commands::Move { args } => {
             // For move, we'll copy then delete the originals
-            cli::handle_move(
-                client, sources, destination, recursive, preserve, preserve_links, 
-                preserve_sparse, verify, exists, priority, max_rate, engine, dry_run,
-                regex_rename_match, regex_rename_replace, block_size, compress, encrypt, 
-                monitor, &cli.format
-            ).await?;
+            cli::handle_move(client, args, &cli.format).await?;
         }
         Commands::List { completed, json } => {
             cli::handle_list(client, completed, json, &cli.format).await?;
