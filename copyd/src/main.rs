@@ -1,5 +1,4 @@
 use anyhow::Result;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{info, error};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -45,7 +44,7 @@ async fn main() -> Result<()> {
         info!("Notified systemd that daemon is ready");
 
         // Start watchdog if enabled
-        if let Some(watchdog_usec) = systemd::daemon::watchdog_enabled(false) {
+        if let Ok(watchdog_usec) = systemd::daemon::watchdog_enabled(false) {
             let daemon_clone = daemon.clone();
             tokio::spawn(async move {
                 let interval = std::time::Duration::from_micros(watchdog_usec / 2);
@@ -68,7 +67,7 @@ async fn main() -> Result<()> {
         if let Ok(_) = std::env::var("NOTIFY_SOCKET") {
             let _ = systemd::daemon::notify(false, [
                 (systemd::daemon::STATE_STATUS, &format!("Failed: {}", e)),
-                (systemd::daemon::STATE_ERRNO, &format!("{}", e as &dyn std::error::Error as *const _ as usize))
+                (systemd::daemon::STATE_ERRNO, "1")
             ].iter());
         }
         return Err(e);
