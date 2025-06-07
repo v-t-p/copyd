@@ -4,10 +4,8 @@ include!(concat!(env!("OUT_DIR"), "/copyd.rs"));
 use prost::Message;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use anyhow::{Result, Context};
-use serde::{Serialize, Deserialize};
 use std::str::FromStr;
 use std::fmt;
-use num_enum::TryFromPrimitive;
 
 /// Length-prefixed message frame format:
 /// [4 bytes length][message bytes]
