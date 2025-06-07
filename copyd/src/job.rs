@@ -1,6 +1,6 @@
 use copyd_protocol::*;
 use crate::copy_engine::{CopyOptions, FileCopyEngine};
-use crate::directory::{DirectoryHandler, DirectoryTraversal};
+use crate::directory::DirectoryHandler;
 use crate::checkpoint::{CheckpointManager, JobCheckpoint};
 use anyhow::{Result, Context};
 use std::collections::{HashMap, VecDeque};
@@ -399,10 +399,7 @@ impl JobManager {
                 Ok(bytes_copied) => {
                     let _ = event_sender.send(JobEvent {
                         job_id: Some(JobId { uuid: job_id.to_string() }),
-                        event_type: Some(job_event::EventType::FileCompleted(FileCompleted {
-                            file_path: dest_path.to_string_lossy().to_string(),
-                            bytes_copied,
-                        })),
+                        event_type: Some(job_event::EventType::FileCompleted(Default::default())),
                     });
                 }
                 Err(e) => {

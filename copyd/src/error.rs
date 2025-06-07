@@ -40,7 +40,7 @@ pub enum CopydError {
     VerificationFailed { expected: String, actual: String },
 
     // Job management errors
-    #[error("Job not found: {job_id}")]
+    #[error("Job '{job_id}' not found")]
     JobNotFound { job_id: String },
 
     #[error("Job already exists: {job_id}")]

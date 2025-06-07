@@ -4,6 +4,7 @@ use sha2::{Sha256, Digest};
 use md5::Digest as Md5Digest;
 use tokio::io::AsyncReadExt;
 use tracing::{info, debug};
+use md5::Md5;
 
 #[derive(Debug, Clone, Copy)]
 pub enum VerifyMode {
@@ -120,7 +121,7 @@ impl FileVerifier {
         let mut file = tokio::fs::File::open(file_path).await
             .with_context(|| format!("Failed to open file for MD5: {:?}", file_path))?;
         
-        let mut hasher = md5::Md5::new();
+        let mut hasher = Md5::new();
         let mut buffer = vec![0u8; 8192];
         
         loop {

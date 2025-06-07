@@ -106,52 +106,53 @@ impl DirectoryHandler {
         Ok(traversal)
     }
 
-    async fn traverse_directory(
-        source_dir: &Path,
-        dest_dir: &Path,
-        traversal: &mut DirectoryTraversal,
+    fn traverse_directory<'a>(
+        source_dir: &'a Path,
+        dest_dir: &'a Path,
+        traversal: &'a mut DirectoryTraversal,
         preserve_links: bool,
-    ) -> Result<()> {
-        let mut entries = fs::read_dir(source_dir).await
-            .with_context(|| format!("Failed to read directory: {:?}", source_dir))?;
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move {
+            let mut entries = fs::read_dir(source_dir).await
+                .with_context(|| format!("Failed to read directory: {:?}", source_dir))?;
 
-        // Add directory to create list
-        traversal.directories.push(dest_dir.to_path_buf());
+            // Add directory to create list
+            traversal.directories.push(dest_dir.to_path_buf());
 
-        while let Some(entry) = entries.next_entry().await? {
-            let source_path = entry.path();
-            let dest_path = dest_dir.join(entry.file_name());
-            
-            let metadata = entry.metadata().await?;
+            while let Some(entry) = entries.next_entry().await? {
+                let source_path = entry.path();
+                let dest_path = dest_dir.join(entry.file_name());
+                
+                let metadata = entry.metadata().await?;
 
-            if metadata.is_dir() {
-                // Recursively traverse subdirectory
-                Self::traverse_directory(
-                    &source_path, 
-                    &dest_path, 
-                    traversal,
-                    preserve_links
-                ).await?;
-            } else {
-                let file_entry = Self::create_file_entry(
-                    &source_path, 
-                    &dest_path, 
-                    &metadata,
-                    &mut traversal.hard_link_map,
-                    preserve_links
-                ).await?;
-
-                if file_entry.is_symlink {
-                    traversal.symlinks.push(file_entry);
+                if metadata.is_dir() {
+                    // Recursively traverse subdirectory
+                    Self::traverse_directory(
+                        &source_path, 
+                        &dest_path, 
+                        traversal,
+                        preserve_links
+                    ).await?;
                 } else {
-                    traversal.total_size += file_entry.size;
-                    traversal.total_files += 1;
-                    traversal.files.push(file_entry);
+                    let file_entry = Self::create_file_entry(
+                        &source_path, 
+                        &dest_path, 
+                        &metadata,
+                        &mut traversal.hard_link_map,
+                        preserve_links
+                    ).await?;
+
+                    if file_entry.is_symlink {
+                        traversal.symlinks.push(file_entry);
+                    } else {
+                        traversal.total_size += file_entry.size;
+                        traversal.total_files += 1;
+                        traversal.files.push(file_entry);
+                    }
                 }
             }
-        }
-
-        Ok(())
+            Ok(())
+        })
     }
 
     async fn create_file_entry(
