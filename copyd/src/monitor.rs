@@ -1,18 +1,13 @@
 use crate::error::{CopydError, CopydResult};
 use prometheus::{
-    Counter, Gauge, Histogram, IntCounter, IntGauge, Registry, 
-    exponential_buckets, linear_buckets, CounterVec
+    Counter, Gauge, Histogram, IntCounter, IntGauge, Registry,
+    exponential_buckets, CounterVec
 };
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{info, warn, error};
 use tokio::sync::RwLock;
-use futures::executor;
-use crate::config::Config;
 use copyd_protocol::JobStatus;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use tokio::time::{self, Duration, Instant};
 use anyhow::Result;
 
 /// Enhanced monitoring system with Prometheus metrics

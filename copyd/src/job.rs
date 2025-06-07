@@ -364,12 +364,12 @@ impl JobManager {
     }
 
     async fn execute_copy_operation(
-        job_id: &str,
+        _job_id: &str,
         sources: &[PathBuf],
         destination: &Path,
         options: &JobOptions,
         _jobs: Arc<RwLock<HashMap<String, Job>>>,
-        event_sender: &mpsc::UnboundedSender<JobEvent>,
+        _event_sender: &mpsc::UnboundedSender<JobEvent>,
     ) -> Result<()> {
         let copy_options = CopyOptions {
             preserve_metadata: options.preserve_metadata,
@@ -404,7 +404,7 @@ impl JobManager {
                     });
                     */
                 }
-                Err(e) => {
+                Err(_e) => {
                     /*
                      let _ = event_sender.send(JobEvent {
                         job_id: Some(JobId { uuid: job_id.to_string() }),
