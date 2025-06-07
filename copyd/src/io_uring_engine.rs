@@ -77,7 +77,7 @@ impl IoUringCopyEngine {
             write_ops: 0,
             avg_read_latency_us: 0.0,
             avg_write_latency_us: 0.0,
-            queue_depth: self.ring.params().sq_entries(),
+            queue_depth: 0, // self.ring.params().sq_entries(),
         };
 
         // Use multiple buffers for better parallelism
@@ -242,7 +242,7 @@ impl IoUringCopyEngine {
             write_ops: 0,
             avg_read_latency_us: 0.0,
             avg_write_latency_us: 0.0,
-            queue_depth: self.ring.params().sq_entries(),
+            queue_depth: 0, // self.ring.params().sq_entries(),
         };
 
         // Create vectored buffers
@@ -357,7 +357,7 @@ impl IoUringCopyEngine {
 
     pub fn get_ring_stats(&self) -> (u32, u32, u32) {
         let params = self.ring.params();
-        (params.sq_entries(), params.cq_entries(), (*params).features)
+        (params.sq_entries(), params.cq_entries(), 0)
     }
 }
 
