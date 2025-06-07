@@ -1,5 +1,4 @@
-use crate::metrics::PerformanceMetrics;
-use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
 use tracing::debug;
@@ -11,9 +10,9 @@ use procfs::process::Process;
 #[derive(Debug, Clone)]
 pub struct PerformanceMetrics {
     /// CPU usage samples
-    pub cpu_samples: Vec<f64>,
+    pub cpu_samples: VecDeque<(Instant, f64)>,
     /// Memory usage samples (in bytes)
-    pub memory_samples: Vec<u64>,
+    pub memory_samples: VecDeque<(Instant, u64)>,
     /// I/O operation times
     pub io_operations: HashMap<String, Vec<Duration>>,
     /// Copy engine performance
@@ -43,8 +42,8 @@ pub struct SystemMetrics {
 impl Default for PerformanceMetrics {
     fn default() -> Self {
         Self {
-            cpu_samples: Vec::new(),
-            memory_samples: Vec::new(),
+            cpu_samples: VecDeque::new(),
+            memory_samples: VecDeque::new(),
             io_operations: HashMap::new(),
             engine_performance: HashMap::new(),
             system_metrics: SystemMetrics {
@@ -126,7 +125,7 @@ impl PerformanceProfiler {
         if let Ok(mut metrics) = self.metrics.lock() {
             // Sample memory usage (simplified - in production use proper system calls)
             let current_memory = self.get_current_memory_usage();
-            metrics.memory_samples.push(current_memory);
+            metrics.memory_samples.push_back((Instant::now(), current_memory));
             metrics.system_metrics.current_memory_usage = current_memory;
             
             if current_memory > metrics.system_metrics.peak_memory_usage {
@@ -135,19 +134,17 @@ impl PerformanceProfiler {
 
             // Sample CPU usage (simplified)
             let cpu_usage = self.get_current_cpu_usage();
-            metrics.cpu_samples.push(cpu_usage);
+            metrics.cpu_samples.push_back((Instant::now(), cpu_usage));
 
             // Update uptime
             metrics.system_metrics.uptime = self.start_time.elapsed();
 
             // Keep only recent samples (last 100)
-            if metrics.memory_samples.len() > 100 {
-                let to_drain = metrics.memory_samples.len() - 100;
-                metrics.memory_samples.drain(..to_drain);
+            while metrics.memory_samples.len() > 100 {
+                metrics.memory_samples.pop_front();
             }
-            if metrics.cpu_samples.len() > 100 {
-                let to_drain = metrics.cpu_samples.len() - 100;
-                metrics.cpu_samples.drain(..to_drain);
+            while metrics.cpu_samples.len() > 100 {
+                metrics.cpu_samples.pop_front();
             }
 
             debug!("System metrics: {}MB memory, {:.1}% CPU",
@@ -163,13 +160,13 @@ impl PerformanceProfiler {
         let average_memory = if metrics.memory_samples.is_empty() {
             0
         } else {
-            metrics.memory_samples.iter().sum::<u64>() / metrics.memory_samples.len() as u64
+            metrics.memory_samples.iter().map(|&(_, memory)| memory).sum::<u64>() / metrics.memory_samples.len() as u64
         };
 
         let average_cpu = if metrics.cpu_samples.is_empty() {
             0.0
         } else {
-            metrics.cpu_samples.iter().sum::<f64>() / metrics.cpu_samples.len() as f64
+            metrics.cpu_samples.iter().map(|&(_, cpu)| cpu).sum::<f64>() / metrics.cpu_samples.len() as f64
         };
 
         let mut engine_reports = Vec::new();

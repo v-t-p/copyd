@@ -89,7 +89,9 @@ impl FileCopyEngine {
             info!("Verifying copied file with {:?}", options.verify);
             let verification_start = std::time::Instant::now();
             
-            match FileVerifier::verify_copy(source, destination, options.verify).await {
+            let verify_mode_local = crate::verify::VerifyMode::from(options.verify);
+
+            match FileVerifier::verify_copy(source, destination, verify_mode_local).await {
                 Ok(true) => {
                     let verification_time = verification_start.elapsed();
                     info!("Verification completed successfully in {:.2}s", verification_time.as_secs_f64());
@@ -230,12 +232,15 @@ impl FileCopyEngine {
             let remaining = file_size - total_copied;
             let copy_size = std::cmp::min(remaining, chunk_size as u64) as usize;
             
+            let mut source_offset = total_copied as i64;
+            let mut dest_offset = total_copied as i64;
+
             // Use copy_file_range system call
             match copy_file_range(
                 &source_file,
-                Some(&mut offset),
+                Some(&mut source_offset),
                 &dest_file, 
-                Some(&mut offset),
+                Some(&mut dest_offset),
                 copy_size
             ) {
                 Ok(bytes_copied) => {
@@ -299,7 +304,7 @@ impl FileCopyEngine {
             let copy_size = std::cmp::min(remaining, chunk_size as u64) as usize;
             
             // Use sendfile system call
-            match sendfile(dest_fd, source_fd, Some(&mut offset), copy_size) {
+            match sendfile(&dest_file, &source_file, Some(&mut offset), copy_size) {
                 Ok(bytes_copied) => {
                     if bytes_copied == 0 {
                         break; // EOF reached
@@ -494,7 +499,7 @@ impl FileCopyEngine {
             let atime_spec = TimeSpec::from(atime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             let mtime_spec = TimeSpec::from(mtime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             
-            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, None) {
+            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, nix::sys::stat::UtimensatFlags::empty()) {
                 warn!("Could not set timestamps for {:?}: {}", destination, e);
             }
         }

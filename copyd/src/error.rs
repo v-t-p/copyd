@@ -160,12 +160,6 @@ pub enum CopydError {
         source: std::io::Error,
     },
 
-    #[error("Job '{0}' not found")]
-    JobNotFound(String),
-
-    #[error("Cross-device link not allowed from {source:?} to {destination:?}")]
-    CrossDevice { source: PathBuf, destination: PathBuf },
-
     #[error("Verification failed for {0}: {1}")]
     Verification(PathBuf, String),
 

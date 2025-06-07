@@ -1,7 +1,7 @@
 use anyhow::{Result, Context};
 use std::path::Path;
 use sha2::{Sha256, Digest};
-use md5::Md5;
+use md5::Digest as Md5Digest;
 use tokio::io::AsyncReadExt;
 use tracing::{info, debug};
 
@@ -21,6 +21,17 @@ impl From<i32> for VerifyMode {
             2 => VerifyMode::Md5,
             3 => VerifyMode::Sha256,
             _ => VerifyMode::None,
+        }
+    }
+}
+
+impl From<copyd_protocol::VerifyMode> for VerifyMode {
+    fn from(value: copyd_protocol::VerifyMode) -> Self {
+        match value {
+            copyd_protocol::VerifyMode::None => VerifyMode::None,
+            copyd_protocol::VerifyMode::Size => VerifyMode::Size,
+            copyd_protocol::VerifyMode::Md5 => VerifyMode::Md5,
+            copyd_protocol::VerifyMode::Sha256 => VerifyMode::Sha256,
         }
     }
 }
@@ -109,7 +120,7 @@ impl FileVerifier {
         let mut file = tokio::fs::File::open(file_path).await
             .with_context(|| format!("Failed to open file for MD5: {:?}", file_path))?;
         
-        let mut hasher = Md5::new();
+        let mut hasher = md5::Md5::new();
         let mut buffer = vec![0u8; 8192];
         
         loop {

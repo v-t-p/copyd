@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{RwLock, mpsc, Semaphore};
-use tokio::time::Duration;
+use tokio::time::{interval, Duration};
 use tracing::{info, error};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
@@ -328,7 +328,7 @@ impl JobManager {
             &destination, 
             &options, 
             jobs.clone(), 
-            event_sender
+            &event_sender
         ).await;
 
         // Update final job status
@@ -399,7 +399,7 @@ impl JobManager {
                 Ok(bytes_copied) => {
                     let _ = event_sender.send(JobEvent {
                         job_id: Some(JobId { uuid: job_id.to_string() }),
-                        event_type: Some(job_event::EventType::FileCompleted(FileCompletedEvent {
+                        event_type: Some(job_event::EventType::FileCompleted(FileCompleted {
                             file_path: dest_path.to_string_lossy().to_string(),
                             bytes_copied,
                         })),
@@ -408,7 +408,7 @@ impl JobManager {
                 Err(e) => {
                      let _ = event_sender.send(JobEvent {
                         job_id: Some(JobId { uuid: job_id.to_string() }),
-                        event_type: Some(job_event::EventType::FileError(FileErrorEvent {
+                        event_type: Some(job_event::EventType::FileError(FileError {
                             file_path: dest_path.to_string_lossy().to_string(),
                             error: e.to_string(),
                         })),

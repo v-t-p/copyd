@@ -21,6 +21,7 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 copyd-protocol = { path = "../copyd-protocol" }
 regex.workspace = true
+reqwest = "0.12"
 
 # Linux-specific dependencies
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -28,6 +29,7 @@ nix.workspace = true
 libc.workspace = true
 systemd.workspace = true
 io-uring.workspace = true
+procfs = "0.17.0"
 
 # Protocol and messaging
 prost = "0.12"

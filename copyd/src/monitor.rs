@@ -9,7 +9,7 @@ use tracing::{info, warn, error};
 use tokio::sync::RwLock;
 use futures::executor;
 use crate::config::Config;
-use crate::job::JobStatus;
+use copyd_protocol::JobStatus;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::time::{self, Duration, Instant};
@@ -143,16 +143,13 @@ impl EnhancedMonitor {
     pub fn record_error(&self, error: &CopydError) {
         self.metrics.errors_total.inc();
         
-        // let error_type = match error {
-        //     CopydError::Io(_) => "io",
-        //     CopydError::Config(_) => "config",
-        //     CopydError::JobNotFound(_) => "job_not_found",
-        //     CopydError::CrossDevice {..} => "cross_device",
-        //     _ => "unknown"
-        // };
-        // self.errors_total.with_label_values(&[error_type]).inc();
-        
-        // Record by error type (would need proper label support)
+        let error_type = match error {
+            CopydError::Io(_) => "io",
+            CopydError::Config(_) => "config",
+            CopydError::JobNotFound(_) => "job_not_found",
+            CopydError::CrossDevice {..} => "cross_device",
+            _ => "unknown"
+        };
         self.metrics.errors_by_type.inc();
         
         // Trigger alerts for critical errors
@@ -195,6 +192,17 @@ impl EnhancedMonitor {
         let encoder = prometheus::TextEncoder::new();
         let metric_families = self.registry.gather();
         encoder.encode_to_string(&metric_families).unwrap_or_default()
+    }
+
+    pub fn record_job_status(&self, status: JobStatus) {
+        let metrics = self.metrics.lock().unwrap();
+        match status {
+            JobStatus::Pending => {}
+            JobStatus::Running => metrics.jobs_started.inc(),
+            JobStatus::Completed => metrics.jobs_completed.inc(),
+            JobStatus::Failed => metrics.jobs_failed.inc(),
+            _ => {}
+        }
     }
 }
 
@@ -445,12 +453,8 @@ mod tests {
     }
 }
 
-pub fn record_job_status(&self, status: JobStatus) {
-    // ... existing code ...
-}
-
-async fn send_alert(alert_manager_url: &str, alert: &Alert) -> Result<()> {
-    let client = reqwest::Client::new();
+async fn send_alert(_alert_manager_url: &str, _alert: &Alert) -> Result<()> {
+    let _client = reqwest::Client::new();
     // client.post(alert_manager_url)
     //     .json(&vec![alert])
     //     .send()

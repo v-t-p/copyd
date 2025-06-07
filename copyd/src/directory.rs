@@ -157,7 +157,7 @@ impl DirectoryHandler {
     async fn create_file_entry(
         source_path: &Path,
         dest_path: &Path,
-        metadata: &fs::Metadata,
+        metadata: &std::fs::Metadata,
         hard_link_map: &mut HashMap<(u64, u64), PathBuf>,
         preserve_links: bool,
     ) -> Result<FileEntry> {
@@ -199,7 +199,7 @@ impl DirectoryHandler {
         })
     }
 
-    async fn is_sparse_file(path: &Path, metadata: &fs::Metadata) -> Result<bool> {
+    async fn is_sparse_file(path: &Path, metadata: &std::fs::Metadata) -> Result<bool> {
         // Simple sparse file detection: compare allocated blocks vs file size
         // This is a heuristic - actual sparse detection would use FIEMAP ioctl
         let file_size = metadata.len();
