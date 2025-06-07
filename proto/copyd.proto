@@ -1,0 +1,218 @@
+syntax = "proto3";
+
+package copyd;
+
+// Common types
+message JobId {
+    string uuid = 1;
+}
+
+message FileInfo {
+    string path = 1;
+    uint64 size = 2;
+    uint64 mode = 3;
+    int64 mtime = 4;
+    int64 ctime = 5;
+    string checksum = 6;
+    bool is_sparse = 7;
+    repeated string extended_attributes = 8;
+}
+
+message Progress {
+    uint64 bytes_copied = 1;
+    uint64 total_bytes = 2;
+    uint64 files_copied = 3;
+    uint64 total_files = 4;
+    double throughput_mbps = 5;
+    int64 eta_seconds = 6;
+    JobStatus status = 7;
+}
+
+enum JobStatus {
+    PENDING = 0;
+    RUNNING = 1;
+    PAUSED = 2;
+    COMPLETED = 3;
+    FAILED = 4;
+    CANCELLED = 5;
+}
+
+enum VerifyMode {
+    NONE = 0;
+    SIZE = 1;
+    MD5 = 2;
+    SHA256 = 3;
+}
+
+enum ExistsAction {
+    OVERWRITE = 0;
+    SKIP = 1;
+    SERIAL = 2;
+}
+
+enum CopyEngine {
+    AUTO = 0;
+    IO_URING = 1;
+    COPY_FILE_RANGE = 2;
+    SENDFILE = 3;
+    REFLINK = 4;
+    READ_WRITE = 5;
+}
+
+// Request messages
+message CreateJobRequest {
+    repeated string sources = 1;
+    string destination = 2;
+    bool recursive = 3;
+    bool preserve_metadata = 4;
+    bool preserve_links = 5;
+    bool preserve_sparse = 6;
+    VerifyMode verify = 7;
+    ExistsAction exists_action = 8;
+    uint32 priority = 9;
+    uint64 max_rate_bps = 10;
+    CopyEngine engine = 11;
+    bool dry_run = 12;
+    string regex_rename_match = 13;
+    string regex_rename_replace = 14;
+    uint64 block_size = 15;
+    bool compress = 16;
+    bool encrypt = 17;
+}
+
+message JobStatusRequest {
+    JobId job_id = 1;
+}
+
+message ListJobsRequest {
+    bool include_completed = 1;
+}
+
+message CancelJobRequest {
+    JobId job_id = 1;
+}
+
+message PauseJobRequest {
+    JobId job_id = 1;
+}
+
+message ResumeJobRequest {
+    JobId job_id = 1;
+}
+
+message GetStatsRequest {
+    int32 days_back = 1;
+}
+
+message HealthCheckRequest {}
+
+// Response messages
+message CreateJobResponse {
+    JobId job_id = 1;
+    string error = 2;
+}
+
+message JobStatusResponse {
+    JobId job_id = 1;
+    Progress progress = 2;
+    string error = 3;
+    repeated string log_entries = 4;
+}
+
+message ListJobsResponse {
+    repeated JobInfo jobs = 1;
+}
+
+message JobInfo {
+    JobId job_id = 1;
+    repeated string sources = 2;
+    string destination = 3;
+    Progress progress = 4;
+    int64 created_at = 5;
+    int64 started_at = 6;
+    int64 completed_at = 7;
+    uint32 priority = 8;
+}
+
+message CancelJobResponse {
+    bool success = 1;
+    string error = 2;
+}
+
+message PauseJobResponse {
+    bool success = 1;
+    string error = 2;
+}
+
+message ResumeJobResponse {
+    bool success = 1;
+    string error = 2;
+}
+
+message StatsResponse {
+    uint64 total_bytes_copied = 1;
+    uint64 total_files_copied = 2;
+    uint32 total_jobs = 3;
+    repeated DailyStats daily_stats = 4;
+    repeated SlowPath slow_paths = 5;
+}
+
+message DailyStats {
+    string date = 1;
+    uint64 bytes_copied = 2;
+    uint64 files_copied = 3;
+    uint32 jobs_completed = 4;
+}
+
+message SlowPath {
+    string path = 1;
+    double avg_throughput_mbps = 2;
+    uint32 copy_count = 3;
+}
+
+message HealthCheckResponse {
+    bool healthy = 1;
+    string version = 2;
+    int64 uptime_seconds = 3;
+    uint32 active_jobs = 4;
+    uint32 queued_jobs = 5;
+    uint64 memory_usage_bytes = 6;
+    double cpu_usage_percent = 7;
+}
+
+// Main request/response wrapper
+message Request {
+    oneof request_type {
+        CreateJobRequest create_job = 1;
+        JobStatusRequest job_status = 2;
+        ListJobsRequest list_jobs = 3;
+        CancelJobRequest cancel_job = 4;
+        PauseJobRequest pause_job = 5;
+        ResumeJobRequest resume_job = 6;
+        GetStatsRequest get_stats = 7;
+        HealthCheckRequest health_check = 8;
+    }
+}
+
+message Response {
+    oneof response_type {
+        CreateJobResponse create_job = 1;
+        JobStatusResponse job_status = 2;
+        ListJobsResponse list_jobs = 3;
+        CancelJobResponse cancel_job = 4;
+        PauseJobResponse pause_job = 5;
+        ResumeJobResponse resume_job = 6;
+        StatsResponse get_stats = 7;
+        HealthCheckResponse health_check = 8;
+    }
+}
+
+// Event streaming for real-time updates
+message JobEvent {
+    JobId job_id = 1;
+    oneof event_type {
+        Progress progress_update = 2;
+        string log_message = 3;
+        JobStatus status_change = 4;
+    }
+} 

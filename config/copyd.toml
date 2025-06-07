@@ -1,0 +1,44 @@
+# copyd configuration file
+# This file should be placed in /etc/copyd/copyd.toml
+
+# Socket path for client communication
+socket_path = "/run/copyd/copyd.sock"
+
+# Maximum number of concurrent copy jobs
+max_concurrent_jobs = 4
+
+# Maximum number of jobs in the queue
+max_job_queue_size = 1000
+
+# Default block size for I/O operations (bytes)
+default_block_size = 1048576  # 1MB
+
+# Global maximum transfer rate in MB/s (optional)
+# max_rate_mbps = 100
+
+# Metrics server bind address (optional)
+metrics_bind_addr = "127.0.0.1:9090"
+
+# Log level (trace, debug, info, warn, error)
+log_level = "info"
+
+# Number of days to keep job history
+job_history_days = 30
+
+# Checkpoint interval for resumable transfers (seconds)
+checkpoint_interval_secs = 5
+
+# Temporary directory for intermediate files
+temp_dir = "/tmp/copyd"
+
+# Enable compression by default
+enable_compression = false
+
+# Enable encryption by default
+enable_encryption = false
+
+# io_uring queue depth
+io_uring_entries = 256
+
+# Enable systemd watchdog
+watchdog_enabled = true 

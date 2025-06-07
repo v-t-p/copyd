@@ -1,0 +1,37 @@
+[workspace]
+members = ["copyd", "copyctl"]
+
+[workspace.dependencies]
+anyhow = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+config = "0.14"
+dashmap = "5.5"
+io-uring = "0.6"
+nix = "0.27"
+regex = "1.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+systemd = "0.10"
+thiserror = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.6", features = ["v4"] }
+
+# New dependencies for enhanced features
+chrono = { version = "0.4", features = ["serde"] }
+libc = "0.2"
+procfs = "0.15"
+prometheus = "0.13"
+
+# TUI dependencies
+crossterm = "0.27"
+ratatui = "0.24"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["copyd project"]
+license = "MIT OR Apache-2.0"
+
+ 

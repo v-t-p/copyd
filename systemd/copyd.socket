@@ -1,0 +1,19 @@
+[Unit]
+Description=Modern copy daemon socket
+Documentation=man:copyd(8)
+PartOf=copyd.service
+
+[Socket]
+ListenStream=/run/copyd/copyd.sock
+SocketMode=0660
+SocketUser=copyd
+SocketGroup=copyd
+RemoveOnStop=true
+DirectoryMode=0755
+
+# Security
+NoDelay=true
+KeepAlive=true
+
+[Install]
+WantedBy=sockets.target 

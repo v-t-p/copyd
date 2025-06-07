@@ -1,0 +1,50 @@
+[Unit]
+Description=Modern copy daemon with advanced features
+Documentation=man:copyd(8)
+After=network.target
+Requires=copyd.socket
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/copyd
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+# Watchdog configuration
+WatchdogSec=30
+NotifyAccess=main
+
+# Security settings
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+RestrictNamespaces=true
+
+# Allow access to required directories
+ReadWritePaths=/run/copyd /tmp/copyd /var/log/copyd
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# User and group
+User=copyd
+Group=copyd
+
+# Environment
+Environment=RUST_LOG=copyd=info
+
+[Install]
+WantedBy=multi-user.target
+Also=copyd.socket 

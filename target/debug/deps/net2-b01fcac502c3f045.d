@@ -1,0 +1,12 @@
+D:\GitHub\copyd\target\debug\deps\libnet2-b01fcac502c3f045.rmeta: C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\lib.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\tcp.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\udp.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\socket.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\ext.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\utils.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\sys\windows\mod.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\sys\windows\impls.rs
+
+D:\GitHub\copyd\target\debug\deps\net2-b01fcac502c3f045.d: C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\lib.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\tcp.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\udp.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\socket.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\ext.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\utils.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\sys\windows\mod.rs C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\sys\windows\impls.rs
+
+C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\lib.rs:
+C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\tcp.rs:
+C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\udp.rs:
+C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\socket.rs:
+C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\ext.rs:
+C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\utils.rs:
+C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\sys\windows\mod.rs:
+C:\Users\jamie\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\net2-0.2.39\src\sys\windows\impls.rs:

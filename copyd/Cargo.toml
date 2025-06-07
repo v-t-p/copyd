@@ -1,0 +1,58 @@
+[package]
+name = "copyd"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Modern copy daemon with advanced features"
+
+[[bin]]
+name = "copyd"
+path = "src/main.rs"
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+
+# Linux-specific dependencies
+[target.'cfg(target_os = "linux")'.dependencies]
+nix.workspace = true
+libc.workspace = true
+systemd.workspace = true
+io-uring.workspace = true
+
+# Protocol and messaging
+prost = "0.12"
+prost-types = "0.12"
+
+# File operations
+memmap2 = "0.9"
+sha2 = "0.10"
+md5 = "0.7"
+zstd = "0.13"
+
+# Async and concurrency
+futures = "0.3"
+parking_lot = "0.12"
+
+# Unix domain sockets
+tokio-uds = "0.2"
+
+# Prometheus metrics
+prometheus = { version = "0.13", features = ["process"] }
+hyper = { version = "0.14", features = ["full"] }
+
+# Configuration
+toml = "0.8"
+dirs = "5.0"
+num_cpus = "1.16"
+chrono = { version = "0.4", features = ["serde"] }
+
+[build-dependencies]
+prost-build = "0.12" 
