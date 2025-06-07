@@ -2,15 +2,13 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     backend::Backend,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Tabs, Clear},
     Frame,
 };
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
-use tracing::{info, debug, warn};
 
 use super::{
     file_browser::FileBrowser,
@@ -53,9 +51,7 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new() -> Result<Self> {
-        let client = CopyClient::new("/run/copyd/copyd.sock".into()).await?;
-        
+    pub async fn new(client: CopyClient) -> Result<Self> {
         Ok(Self {
             current_screen: AppScreen::FileBrowser,
             file_browser: FileBrowser::new()?,
@@ -70,7 +66,7 @@ impl App {
         })
     }
 
-    pub fn draw<B: Backend>(&mut self, f: &mut Frame<B>) {
+    pub fn draw(&mut self, f: &mut Frame) {
         let size = f.size();
 
         // Create main layout
@@ -103,7 +99,7 @@ impl App {
         }
     }
 
-    fn draw_tab_bar<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+    fn draw_tab_bar(&self, f: &mut Frame, area: Rect) {
         let titles = vec![
             AppScreen::FileBrowser.as_str(),
             AppScreen::JobMonitor.as_str(),
@@ -127,7 +123,7 @@ impl App {
         f.render_widget(tabs, area);
     }
 
-    fn draw_status_bar<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+    fn draw_status_bar(&self, f: &mut Frame, area: Rect) {
         let mut status_text = Vec::new();
 
         // Show current time
@@ -168,7 +164,7 @@ impl App {
         f.render_widget(status_paragraph, area);
     }
 
-    fn draw_popup<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+    fn draw_popup(&self, f: &mut Frame, area: Rect) {
         let popup_area = centered_rect(60, 20, area);
         
         f.render_widget(Clear, popup_area);

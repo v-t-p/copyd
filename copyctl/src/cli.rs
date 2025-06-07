@@ -296,9 +296,11 @@ async fn monitor_job(client: &CopyClient, job_id: &str, format: &str) -> Result<
                     println!("{}", serde_json::to_string_pretty(&status)?);
                     
                     if let Some(progress) = &status.progress {
-                        match JobStatus::from_i32(progress.status) {
-                            Some(JobStatus::Completed) | Some(JobStatus::Failed) | Some(JobStatus::Cancelled) => break,
-                            _ => {}
+                        if let Ok(status) = JobStatus::try_from(progress.status) {
+                            match status {
+                                JobStatus::Completed | JobStatus::Failed | JobStatus::Cancelled => break,
+                                _ => {}
+                            }
                         }
                     }
                 }
@@ -345,20 +347,22 @@ async fn monitor_job(client: &CopyClient, job_id: &str, format: &str) -> Result<
                         };
                         pb.set_message(msg);
 
-                        match JobStatus::from_i32(progress.status) {
-                            Some(JobStatus::Completed) => {
-                                pb.finish_with_message("Completed!");
-                                break;
+                        if let Ok(status) = JobStatus::try_from(progress.status) {
+                            match status {
+                                JobStatus::Completed => {
+                                    pb.finish_with_message("Completed!");
+                                    break;
+                                }
+                                JobStatus::Failed => {
+                                    pb.finish_with_message("Failed!");
+                                    break;
+                                }
+                                JobStatus::Cancelled => {
+                                    pb.finish_with_message("Cancelled!");
+                                    break;
+                                }
+                                _ => {}
                             }
-                            Some(JobStatus::Failed) => {
-                                pb.finish_with_message("Failed!");
-                                break;
-                            }
-                            Some(JobStatus::Cancelled) => {
-                                pb.finish_with_message("Cancelled!");
-                                break;
-                            }
-                            _ => {}
                         }
                     }
                 }
@@ -448,13 +452,13 @@ fn format_duration(seconds: i64) -> String {
 
 /// Convert a numeric `JobStatus` code into a coloured, human-readable string.
 fn styled_job_status(code: i32) -> console::StyledObject<&'static str> {
-    match JobStatus::from_i32(code) {
-        Some(JobStatus::Pending) => style("PENDING").yellow(),
-        Some(JobStatus::Running) => style("RUNNING").green(),
-        Some(JobStatus::Paused) => style("PAUSED").blue(),
-        Some(JobStatus::Completed) => style("COMPLETED").green(),
-        Some(JobStatus::Failed) => style("FAILED").red(),
-        Some(JobStatus::Cancelled) => style("CANCELLED").red(),
+    match JobStatus::try_from(code) {
+        Ok(JobStatus::Pending) => style("PENDING").yellow(),
+        Ok(JobStatus::Running) => style("RUNNING").green(),
+        Ok(JobStatus::Paused) => style("PAUSED").blue(),
+        Ok(JobStatus::Completed) => style("COMPLETED").green(),
+        Ok(JobStatus::Failed) => style("FAILED").red(),
+        Ok(JobStatus::Cancelled) => style("CANCELLED").red(),
         _ => style("UNKNOWN").dim(),
     }
 } 

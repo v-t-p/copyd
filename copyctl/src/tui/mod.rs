@@ -6,7 +6,7 @@ pub mod config_editor;
 
 use anyhow::Result;
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -17,9 +17,10 @@ use ratatui::{
 use std::io;
 use tracing::{info, error};
 
+use crate::client::CopyClient;
 pub use app::App;
 
-pub async fn run_tui() -> Result<()> {
+pub async fn run_tui(client: CopyClient) -> Result<()> {
     info!("Starting copyctl Terminal UI");
 
     // Setup terminal
@@ -30,8 +31,7 @@ pub async fn run_tui() -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     // Create app and run it
-    let app = App::new().await?;
-    let res = run_app(&mut terminal, app).await;
+    let res = run_app(&mut terminal, client).await;
 
     // Restore terminal
     disable_raw_mode()?;
@@ -53,8 +53,9 @@ pub async fn run_tui() -> Result<()> {
 
 async fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
-    mut app: App,
+    client: CopyClient,
 ) -> Result<()> {
+    let mut app = App::new(client).await?;
     loop {
         terminal.draw(|f| app.draw(f))?;
 
@@ -63,7 +64,7 @@ async fn run_app<B: ratatui::backend::Backend>(
                 if key.kind == KeyEventKind::Press {
                     match app.handle_key_event(key).await? {
                         true => break, // Quit requested
-                        false => continue,
+                        false => {}, // Continue
                     }
                 }
             }
@@ -78,10 +79,10 @@ async fn run_app<B: ratatui::backend::Backend>(
 
 pub async fn run_monitor(client: crate::client::CopyClient) -> Result<()> {
     info!("Starting job monitor TUI");
-    run_tui().await
+    run_tui(client).await
 }
 
 pub async fn run_navigator(client: crate::client::CopyClient) -> Result<()> {
     info!("Starting file navigator TUI");
-    run_tui().await
+    run_tui(client).await
 } 

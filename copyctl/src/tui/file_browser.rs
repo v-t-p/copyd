@@ -1,8 +1,8 @@
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     backend::Backend,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
@@ -11,7 +11,8 @@ use ratatui::{
 use std::path::{Path, PathBuf};
 use std::fs;
 use tokio::fs as async_fs;
-use tracing::{info, debug, warn, error};
+use tracing::{info, warn, error};
+use std::os::unix::fs::PermissionsExt;
 
 use crate::client::CopyClient;
 
@@ -180,7 +181,7 @@ impl FileBrowser {
         })
     }
 
-    pub fn draw<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
+    pub fn draw(&mut self, f: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -193,7 +194,7 @@ impl FileBrowser {
         self.draw_pane(f, chunks[1], &mut self.right_pane, self.active_pane == 1);
     }
 
-    fn draw_pane<B: Backend>(&self, f: &mut Frame<B>, area: Rect, pane: &mut FilePane, is_active: bool) {
+    fn draw_pane(&self, f: &mut Frame, area: Rect, pane: &mut FilePane, is_active: bool) {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(3), Constraint::Min(0)])
@@ -222,7 +223,7 @@ impl FileBrowser {
         f.render_widget(path_paragraph, layout[0]);
 
         // Draw file list
-        let items: Vec<ListItem> = pane.entries.iter().enumerate().map(|(i, entry)| {
+        let items: Vec<ListItem> = pane.entries.iter().enumerate().map(|(_, entry)| {
             let mut spans = Vec::new();
             
             // Icon based on file type
@@ -378,14 +379,14 @@ impl FileBrowser {
             info!("Copying {:?} to {:?}", file.path, destination);
 
             // Create copy job via daemon
-            let result = client.copy_file(
-                &file.path,
-                &destination,
-                true, // recursive if directory
-                true, // preserve metadata
-                None, // no rate limit
-                false, // not dry run
-            ).await;
+            let request = copyd_protocol::CreateJobRequest {
+                sources: vec![file.path.to_string_lossy().to_string()],
+                destination: destination.to_string_lossy().to_string(),
+                recursive: file.is_dir,
+                preserve_metadata: true,
+                ..Default::default()
+            };
+            let result = client.create_job(request).await;
 
             match result {
                 Ok(job_id) => {
@@ -426,14 +427,14 @@ impl FileBrowser {
 
             // For now, implement move as copy + delete
             // TODO: Implement proper move operation in daemon
-            let result = client.copy_file(
-                &file.path,
-                &destination,
-                true, // recursive if directory
-                true, // preserve metadata
-                None, // no rate limit
-                false, // not dry run
-            ).await;
+            let request = copyd_protocol::CreateJobRequest {
+                sources: vec![file.path.to_string_lossy().to_string()],
+                destination: destination.to_string_lossy().to_string(),
+                recursive: file.is_dir,
+                preserve_metadata: true,
+                ..Default::default()
+            };
+            let result = client.create_job(request).await;
 
             match result {
                 Ok(job_id) => {

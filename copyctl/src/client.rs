@@ -1,8 +1,8 @@
-use crate::protocol::*;
+use copyd_protocol::*;
 use anyhow::{Result, Context};
 use std::path::Path;
 use tokio::net::UnixStream;
-use tracing::{debug, error};
+use tracing::debug;
 
 pub struct CopyClient {
     socket_path: std::path::PathBuf,

@@ -1,11 +1,10 @@
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 use ratatui::{
     backend::Backend,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    layout::Rect,
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, List, ListItem},
     Frame,
 };
 use crate::client::CopyClient;
@@ -21,7 +20,7 @@ impl JobMonitor {
         }
     }
 
-    pub fn draw<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
+    pub fn draw(&mut self, f: &mut Frame, area: Rect) {
         let block = Block::default()
             .title("Job Monitor")
             .borders(Borders::ALL);
@@ -34,12 +33,12 @@ impl JobMonitor {
         f.render_widget(list, area);
     }
 
-    pub async fn handle_key_event(&mut self, key: KeyEvent, client: &mut CopyClient) -> Result<()> {
+    pub async fn handle_key_event(&mut self, _key: KeyEvent, _client: &mut CopyClient) -> Result<()> {
         // TODO: Implement job control
         Ok(())
     }
 
-    pub async fn update(&mut self, client: &mut CopyClient) -> Result<()> {
+    pub async fn update(&mut self, _client: &mut CopyClient) -> Result<()> {
         // TODO: Refresh job list from daemon
         Ok(())
     }

@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 use ratatui::{
     backend::Backend,
     layout::Rect,
@@ -15,7 +15,7 @@ impl HelpScreen {
         Self
     }
 
-    pub fn draw<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
+    pub fn draw(&mut self, f: &mut Frame, area: Rect) {
         let help_text = vec![
             Line::from(vec![
                 Span::styled("copyctl - Modern File Operations TUI", 
@@ -56,7 +56,7 @@ impl HelpScreen {
         f.render_widget(help_paragraph, area);
     }
 
-    pub fn handle_key_event(&mut self, key: KeyEvent) {
+    pub fn handle_key_event(&mut self, _key: KeyEvent) {
         // Any key closes help (handled in main app)
     }
 } 
