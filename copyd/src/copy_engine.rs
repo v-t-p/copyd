@@ -433,7 +433,7 @@ impl FileCopyEngine {
 
         // Copy timestamps using utimensat system call
         {
-            use nix::sys::stat::utimensat;
+            use nix::sys::stat::{utimensat, UtimensatFlags};
             use nix::sys::time::{TimeSpec};
             
             let atime = metadata.accessed().unwrap_or_else(|_| metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH));
@@ -442,8 +442,7 @@ impl FileCopyEngine {
             let atime_spec = TimeSpec::from(atime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             let mtime_spec = TimeSpec::from(mtime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default());
             
-            // Use the older 4-parameter version of utimensat (without flags)
-            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec) {
+            if let Err(e) = utimensat(None, destination, &atime_spec, &mtime_spec, UtimensatFlags::from_bits(0).unwrap_or_default()) {
                 warn!("Could not set timestamps for {:?}: {}", destination, e);
             }
         }
