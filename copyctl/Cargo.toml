@@ -24,6 +24,7 @@ crossterm.workspace = true
 ratatui.workspace = true
 regex.workspace = true
 copyd-protocol = { path = "../copyd-protocol" }
+dirs = "5.0"
 
 # Protocol and messaging
 prost = "0.12"

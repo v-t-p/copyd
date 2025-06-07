@@ -367,7 +367,8 @@ async fn monitor_job(client: &CopyClient, job_id: &str, format: &str) -> Result<
                     }
                 }
                 Err(e) => {
-                    pb.finish_with_message(&format!("Error: {}", e));
+                    let msg = format!("Error: {}", e);
+                    pb.finish_with_message(&msg);
                     break;
                 }
             }

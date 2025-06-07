@@ -1,7 +1,6 @@
 use anyhow::Result;
 use crossterm::event::KeyEvent;
 use ratatui::{
-    backend::Backend,
     layout::Rect,
     widgets::{Block, Borders, Paragraph},
     Frame,

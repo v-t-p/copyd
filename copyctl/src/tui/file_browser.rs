@@ -1,7 +1,6 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -13,6 +12,7 @@ use std::fs;
 use tokio::fs as async_fs;
 use tracing::{info, warn, error};
 use std::os::unix::fs::PermissionsExt;
+use dirs;
 
 use crate::client::CopyClient;
 
@@ -188,13 +188,13 @@ impl FileBrowser {
             .split(area);
 
         // Draw left pane
-        self.draw_pane(f, chunks[0], &mut self.left_pane, self.active_pane == 0);
+        Self::draw_pane(f, chunks[0], &mut self.left_pane, self.active_pane == 0);
         
         // Draw right pane
-        self.draw_pane(f, chunks[1], &mut self.right_pane, self.active_pane == 1);
+        Self::draw_pane(f, chunks[1], &mut self.right_pane, self.active_pane == 1);
     }
 
-    fn draw_pane(&self, f: &mut Frame, area: Rect, pane: &mut FilePane, is_active: bool) {
+    fn draw_pane(f: &mut Frame, area: Rect, pane: &mut FilePane, is_active: bool) {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(3), Constraint::Min(0)])
@@ -360,8 +360,8 @@ impl FileBrowser {
     }
 
     async fn copy_selected_files(&mut self, client: &mut CopyClient) -> Result<bool> {
+        let destination_dir = self.get_inactive_pane().current_dir.clone();
         let source_files = self.get_active_pane_mut().get_selected_files();
-        let destination_dir = &self.get_inactive_pane().current_dir;
 
         if source_files.is_empty() {
             warn!("No files selected for copy");
@@ -407,8 +407,8 @@ impl FileBrowser {
     }
 
     async fn move_selected_files(&mut self, client: &mut CopyClient) -> Result<bool> {
+        let destination_dir = self.get_inactive_pane().current_dir.clone();
         let source_files = self.get_active_pane_mut().get_selected_files();
-        let destination_dir = &self.get_inactive_pane().current_dir;
 
         if source_files.is_empty() {
             warn!("No files selected for move");
