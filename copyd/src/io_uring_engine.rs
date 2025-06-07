@@ -357,7 +357,7 @@ impl IoUringCopyEngine {
 
     pub fn get_ring_stats(&self) -> (u32, u32, u32) {
         let params = self.ring.params();
-        (params.sq_entries(), params.cq_entries(), params.features())
+        (params.sq_entries(), params.cq_entries(), (*params).features)
     }
 }
 

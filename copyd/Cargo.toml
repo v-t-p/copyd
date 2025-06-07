@@ -37,8 +37,6 @@ prost-types = "0.12"
 
 # File operations
 memmap2 = "0.9"
-sha2 = "0.10"
-md5 = "0.7"
 zstd = "0.13"
 
 # Async and concurrency
