@@ -14,10 +14,14 @@ use num_enum::TryFromPrimitive;
 pub struct MessageFramer;
 
 impl MessageFramer {
-    pub async fn send_message<T: Message>(
-        writer: &mut (dyn AsyncWriteExt + Unpin),
+    pub async fn send_message<W, T>(
+        writer: &mut W,
         message: &T,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        W: AsyncWriteExt + Unpin,
+        T: Message,
+    {
         let mut buf = Vec::new();
         message.encode(&mut buf).context("Failed to encode message")?;
         
@@ -29,9 +33,13 @@ impl MessageFramer {
         Ok(())
     }
 
-    pub async fn receive_message<T: Message + Default>(
-        reader: &mut (dyn AsyncReadExt + Unpin),
-    ) -> Result<T> {
+    pub async fn receive_message<R, T>(
+        reader: &mut R,
+    ) -> Result<T>
+    where
+        R: AsyncReadExt + Unpin,
+        T: Message + Default,
+    {
         // Read the length prefix
         let mut len_buf = [0u8; 4];
         reader.read_exact(&mut len_buf).await.context("Failed to read length")?;
@@ -51,43 +59,46 @@ impl MessageFramer {
 }
 
 // Convenience functions for common message types
-pub async fn send_request(
-    writer: &mut (dyn AsyncWriteExt + Unpin),
+pub async fn send_request<W>(
+    writer: &mut W,
     request: &Request,
-) -> Result<()> {
+) -> Result<()>
+where
+    W: AsyncWriteExt + Unpin,
+{
     MessageFramer::send_message(writer, request).await
 }
 
-pub async fn receive_request(
-    reader: &mut (dyn AsyncReadExt + Unpin),
-) -> Result<Request> {
+pub async fn receive_request<R>(
+    reader: &mut R,
+) -> Result<Request>
+where
+    R: AsyncReadExt + Unpin,
+{
     MessageFramer::receive_message(reader).await
 }
 
-pub async fn send_response(
-    writer: &mut (dyn AsyncWriteExt + Unpin),
+pub async fn send_response<W>(
+    writer: &mut W,
     response: &Response,
-) -> Result<()> {
+) -> Result<()>
+where
+    W: AsyncWriteExt + Unpin,
+{
     MessageFramer::send_message(writer, response).await
 }
 
-pub async fn receive_response(
-    reader: &mut (dyn AsyncReadExt + Unpin),
-) -> Result<Response> {
+pub async fn receive_response<R>(
+    reader: &mut R,
+) -> Result<Response>
+where
+    R: AsyncReadExt + Unpin,
+{
     MessageFramer::receive_message(reader).await
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TryFromPrimitive)]
-#[repr(i32)]
-pub enum VerifyMode {
-    None,
-    Size,
-    Md5,
-    Sha256,
-}
-
 impl fmt::Display for VerifyMode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
@@ -106,16 +117,8 @@ impl FromStr for VerifyMode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TryFromPrimitive)]
-#[repr(i32)]
-pub enum ExistsAction {
-    Overwrite,
-    Skip,
-    Serial,
-}
-
 impl fmt::Display for ExistsAction {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
@@ -133,19 +136,8 @@ impl FromStr for ExistsAction {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TryFromPrimitive)]
-#[repr(i32)]
-pub enum CopyEngine {
-    Auto,
-    IoUring,
-    CopyFileRange,
-    Sendfile,
-    Reflink,
-    ReadWrite,
-}
-
 impl fmt::Display for CopyEngine {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
