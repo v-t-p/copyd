@@ -170,7 +170,7 @@ impl FileBrowser {
         let current_dir = std::env::current_dir().unwrap_or(home_dir.clone());
         
         let mut left_pane = FilePane::new(current_dir)?;
-        let mut right_pane = FilePane::new(home_dir)?;
+        let right_pane = FilePane::new(home_dir)?;
         
         left_pane.is_active = true;
         
