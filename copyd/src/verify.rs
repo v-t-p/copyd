@@ -1,10 +1,9 @@
 use anyhow::{Result, Context};
 use std::path::Path;
 use sha2::{Sha256, Digest};
-use md5::Digest as Md5Digest;
+use md5::Md5;
 use tokio::io::AsyncReadExt;
 use tracing::{info, debug};
-use md5::Md5;
 
 #[derive(Debug, Clone, Copy)]
 pub enum VerifyMode {

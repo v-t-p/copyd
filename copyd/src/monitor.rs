@@ -1,7 +1,7 @@
 use crate::error::{CopydError, CopydResult};
 use prometheus::{
     Counter, Gauge, Histogram, IntCounter, IntGauge, Registry, 
-    exponential_buckets, linear_buckets
+    exponential_buckets, linear_buckets, CounterVec
 };
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -50,7 +50,7 @@ pub struct MonitoringMetrics {
     pub file_descriptors: IntGauge,
     
     // Error metrics
-    pub errors_total: IntCounter,
+    pub errors_total: CounterVec,
     pub errors_by_type: IntCounter,
     
     // Performance metrics
@@ -141,16 +141,13 @@ impl EnhancedMonitor {
 
     /// Record error occurrence
     pub fn record_error(&self, error: &CopydError) {
-        self.metrics.errors_total.inc();
-        
-        let error_type = match error {
+        self.metrics.errors_total.with_label_values(&[match error {
             CopydError::Io(_) => "io",
             CopydError::Config(_) => "config",
-            CopydError::JobNotFound(_) => "job_not_found",
+            CopydError::JobNotFound {..} => "job_not_found",
             CopydError::CrossDevice {..} => "cross_device",
             _ => "unknown"
-        };
-        self.metrics.errors_by_type.inc();
+        }]).inc();
         
         // Trigger alerts for critical errors
         if matches!(error.severity(), crate::error::ErrorSeverity::Critical) {
@@ -198,7 +195,7 @@ impl EnhancedMonitor {
         let metrics = self.metrics.lock().unwrap();
         match status {
             JobStatus::Pending => {}
-            JobStatus::Running => metrics.jobs_started.inc(),
+            JobStatus::Running => metrics.jobs_total.inc(),
             JobStatus::Completed => metrics.jobs_completed.inc(),
             JobStatus::Failed => metrics.jobs_failed.inc(),
             _ => {}
@@ -235,7 +232,7 @@ impl MonitoringMetrics {
         let file_descriptors = IntGauge::new("copyd_file_descriptors", "Number of open file descriptors")?;
 
         // Error metrics
-        let errors_total = IntCounter::new("copyd_errors_total", "Total number of errors")?;
+        let errors_total = CounterVec::new(prometheus::Opts::new("copyd_errors_total", "Total number of errors"), &["type"])?;
         let errors_by_type = IntCounter::new("copyd_errors_by_type_total", "Errors by type")?;
 
         // Performance metrics

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{VecDeque, HashMap};
 use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
 use tracing::debug;
