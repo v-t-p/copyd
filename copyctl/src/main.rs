@@ -178,11 +178,11 @@ async fn main() -> Result<()> {
             // For move, we'll copy then delete the originals
             cli::handle_move(client, args, &cli.format).await?;
         }
-        Commands::List { completed, json } => {
-            cli::handle_list(client, completed, json, &cli.format).await?;
+        Commands::List { completed, json: _ } => {
+            cli::handle_list(client, completed, &cli.format).await?;
         }
-        Commands::Status { job_id, json, monitor } => {
-            cli::handle_status(client, job_id, json, monitor, &cli.format).await?;
+        Commands::Status { job_id, json: _, monitor } => {
+            cli::handle_status(client, job_id, monitor, &cli.format).await?;
         }
         Commands::Cancel { job_id } => {
             cli::handle_cancel(client, job_id, &cli.format).await?;
@@ -193,8 +193,8 @@ async fn main() -> Result<()> {
         Commands::Resume { job_id } => {
             cli::handle_resume(client, job_id, &cli.format).await?;
         }
-        Commands::Stats { days, json } => {
-            cli::handle_stats(client, days, json, &cli.format).await?;
+        Commands::Stats { days, json: _ } => {
+            cli::handle_stats(client, days, &cli.format).await?;
         }
         Commands::Monitor => {
             tui::run_monitor(client).await?;

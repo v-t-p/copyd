@@ -144,6 +144,17 @@ pub enum CopydError {
 
     #[error("Temporary failure, retry recommended: {reason}")]
     TemporaryFailure { reason: String },
+
+    #[error("Monitoring error: {reason}")]
+    MonitoringError { reason: String },
+}
+
+impl From<prometheus::Error> for CopydError {
+    fn from(e: prometheus::Error) -> Self {
+        CopydError::MonitoringError {
+            reason: e.to_string(),
+        }
+    }
 }
 
 impl CopydError {

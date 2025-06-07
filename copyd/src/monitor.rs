@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{info, warn, error};
 use tokio::sync::RwLock;
+use futures::executor;
 
 /// Enhanced monitoring system with Prometheus metrics
 pub struct EnhancedMonitor {
@@ -156,7 +157,7 @@ impl EnhancedMonitor {
     }
 
     /// Get health status
-    pub fn health_status(&self) -> HealthStatus {
+    pub async fn health_status(&self) -> HealthStatus {
         let uptime = self.start_time.elapsed();
         let active_jobs = self.metrics.jobs_active.get();
         let total_errors = self.metrics.errors_total.get();
@@ -179,7 +180,7 @@ impl EnhancedMonitor {
             total_errors: total_errors as u64,
             memory_usage_mb: memory_usage,
             cpu_usage_percent: cpu_usage,
-            alerts: self.alerts.get_active_alerts(),
+            alerts: self.alerts.get_active_alerts().await,
         }
     }
 
@@ -294,7 +295,8 @@ impl AlertManager {
         
         // Keep only recent alerts (last 100)
         if alerts.len() > 100 {
-            alerts.drain(..alerts.len() - 100);
+            let to_drain = alerts.len() - 100;
+            alerts.drain(..to_drain);
         }
     }
 
@@ -410,14 +412,14 @@ impl HealthStatus {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_enhanced_monitor_creation() {
+    #[tokio::test]
+    async fn test_enhanced_monitor_creation() {
         let monitor = EnhancedMonitor::new().unwrap();
         assert!(monitor.registry().gather().len() > 0);
     }
 
-    #[test]
-    fn test_job_metrics() {
+    #[tokio::test]
+    async fn test_job_metrics() {
         let monitor = EnhancedMonitor::new().unwrap();
         
         monitor.job_started("test_job");
@@ -429,10 +431,10 @@ mod tests {
         assert_eq!(monitor.metrics.jobs_active.get(), 0);
     }
 
-    #[test]
-    fn test_health_status() {
+    #[tokio::test]
+    async fn test_health_status() {
         let monitor = EnhancedMonitor::new().unwrap();
-        let health = monitor.health_status();
+        let health = monitor.health_status().await;
         assert_eq!(health.level, HealthLevel::Healthy);
         assert!(health.is_healthy());
     }

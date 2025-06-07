@@ -20,6 +20,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 copyd-protocol = { path = "../copyd-protocol" }
+regex.workspace = true
 
 # Linux-specific dependencies
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -56,4 +57,7 @@ num_cpus = "1.16"
 chrono = { version = "0.4", features = ["serde"] }
 
 [build-dependencies]
-prost-build = "0.12" 
+prost-build = "0.12"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] } 

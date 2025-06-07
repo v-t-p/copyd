@@ -1,14 +1,14 @@
 use anyhow::{Result, Context};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 #[cfg(unix)]
-use std::os::unix::fs::{PermissionsExt, MetadataExt};
+use std::os::unix::fs::MetadataExt;
 #[cfg(unix)]
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::io::{AsRawFd};
 use tracing::{info, debug, warn};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[cfg(unix)]
-use nix::fcntl::{copy_file_range, sendfile};
+use nix::fcntl::{copy_file_range, sendfile, CopyFileRangeFlags};
 #[cfg(unix)]
 use nix::sys::stat;
 #[cfg(unix)]
@@ -16,23 +16,11 @@ use nix::unistd;
 use std::time::SystemTime;
 #[cfg(unix)]
 use libc::{off_t};
-use crate::verify::{FileVerifier, VerifyMode};
+use crate::verify::{FileVerifier};
+use copyd_protocol::VerifyMode;
 use crate::sparse::SparseFileHandler;
 use crate::io_uring_engine::{IoUringCopyEngine, IoUringCopyStats};
 use copyd_protocol::{CopyEngine, ExistsAction};
-
-// For now, define a simple copy engine interface
-// This will be expanded with io_uring, copy_file_range, etc.
-
-#[derive(Debug, Clone)]
-pub enum CopyEngine {
-    Auto,
-    IoUring,
-    CopyFileRange,
-    Sendfile,
-    Reflink,
-    ReadWrite,
-}
 
 #[derive(Debug, Clone)]
 pub struct CopyOptions {
@@ -251,7 +239,7 @@ impl FileCopyEngine {
                 dest_fd, 
                 Some(&mut (total_copied as off_t)),
                 copy_size,
-                nix::fcntl::CopyFileRangeFlags::empty()
+                CopyFileRangeFlags::empty()
             ) {
                 Ok(bytes_copied) => {
                     if bytes_copied == 0 {
@@ -646,16 +634,15 @@ impl FileCopyEngine {
             let dest_size = dest_metadata.len();
             
             match options.exists_action {
-                0 => info!("Would OVERWRITE existing file ({} bytes)", dest_size),
-                1 => {
+                ExistsAction::Overwrite => info!("Would OVERWRITE existing file ({} bytes)", dest_size),
+                ExistsAction::Skip => {
                     info!("Would SKIP existing file ({} bytes)", dest_size);
                     return Ok(0); // Skip in dry run
                 }
-                2 => {
+                ExistsAction::Serial => {
                     let serial_name = self.generate_serial_name(destination);
                     info!("Would create SERIAL copy: {:?}", serial_name);
                 }
-                _ => info!("Would OVERWRITE existing file ({} bytes) [default action]", dest_size),
             }
         } else {
             info!("Destination does not exist, would create new file");
@@ -751,27 +738,22 @@ impl FileCopyEngine {
         }
 
         match options.exists_action {
-            0 => {
+            ExistsAction::Overwrite => {
                 // Overwrite
                 info!("Overwriting existing file: {:?}", destination);
                 Ok(destination.to_path_buf())
             }
-            1 => {
+            ExistsAction::Skip => {
                 // Skip
                 info!("Skipping existing file: {:?}", destination);
                 Err(anyhow::anyhow!("File exists and skip policy is enabled"))
             }
-            2 => {
+            ExistsAction::Serial => {
                 // Serial (create numbered copy)
                 let serial_path = self.generate_serial_name(destination);
                 info!("Creating serial copy: {:?}", serial_path);
                 Ok(serial_path)
             }
-            _ => {
-                // Default to overwrite
-                info!("Overwriting existing file (default action): {:?}", destination);
-                Ok(destination.to_path_buf())
-            }
         }
     }
-} 
+}
