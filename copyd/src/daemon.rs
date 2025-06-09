@@ -20,7 +20,7 @@ impl Daemon {
         config.ensure_directories().await?;
 
         // Initialize job manager
-        let (job_manager, _event_receiver) = JobManager::new(
+        let (job_manager, _event_receiver) = JobManager::new_with_checkpoint_dir(
             config.max_concurrent_jobs,
             config.checkpoint_dir.clone()
         );

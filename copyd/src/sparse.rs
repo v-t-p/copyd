@@ -15,6 +15,11 @@ pub struct SparseRegion {
 pub struct SparseFileHandler;
 
 impl SparseFileHandler {
+    /// Create a new instance – presently stateless but provided for API symmetry.
+    pub fn new() -> Self {
+        SparseFileHandler
+    }
+
     /// Copy a sparse file while preserving holes
     pub async fn copy_sparse_file(
         source: &Path,

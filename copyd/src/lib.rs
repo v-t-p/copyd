@@ -25,4 +25,15 @@ pub use profiler::{PerformanceProfiler, PerformanceReport};
 pub use config::Config;
 pub use job::{Job};
 pub use copyd_protocol::{JobStatus, CopyEngine};
-pub use regex_rename::RegexRenamer; 
+pub use regex_rename::RegexRenamer;
+// Additional re-exports to simplify external usage and keep integration tests working
+pub use daemon::Daemon;
+pub use job::JobManager;
+pub use copy_engine::{FileCopyEngine, CopyOptions};
+pub use checkpoint::{CheckpointManager, JobCheckpoint, FileCheckpoint};
+pub use directory::DirectoryHandler;
+pub use sparse::SparseFileHandler;
+pub use verify::{FileVerifier, VerifyMode};
+
+// Expose the protocol crate directly for convenience (e.g., copyd::protocol::CreateJobRequest)
+pub use copyd_protocol as protocol; 

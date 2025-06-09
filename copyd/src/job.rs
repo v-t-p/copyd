@@ -132,7 +132,11 @@ pub struct JobManager {
 }
 
 impl JobManager {
-    pub fn new(max_concurrent: usize, checkpoint_dir: PathBuf) -> (Self, mpsc::UnboundedReceiver<JobEvent>) {
+    /// Create a new job manager using an explicit checkpoint directory.  
+    /// This retains the original behaviour but the method name is made
+    /// explicit so we can also provide a convenience constructor that
+    /// matches the test-suite signature.
+    pub fn new_with_checkpoint_dir(max_concurrent: usize, checkpoint_dir: PathBuf) -> (Self, mpsc::UnboundedReceiver<JobEvent>) {
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
         
         let checkpoint_manager = Arc::new(
@@ -151,6 +155,12 @@ impl JobManager {
         };
 
         (manager, event_receiver)
+    }
+
+    /// Convenience constructor used by integration tests – stores checkpoints in the system temp directory.
+    pub fn new(max_concurrent: usize) -> (Self, mpsc::UnboundedReceiver<JobEvent>) {
+        let checkpoint_dir = std::env::temp_dir().join("copyd_checkpoints");
+        Self::new_with_checkpoint_dir(max_concurrent, checkpoint_dir)
     }
 
     pub async fn create_job(&self, request: CreateJobRequest) -> Result<String> {
