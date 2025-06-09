@@ -62,14 +62,22 @@ impl RegexRenamer {
 
         info!("Regex rename: '{}' -> '{}'", original_name, new_name);
 
-        // Construct new destination path
-        if base_destination.is_dir() {
-            // If destination is a directory, place renamed file inside it
+        // Determine if the provided destination should be treated as a directory.
+        // If the path exists and is a directory – obvious. Otherwise, heuristically
+        // treat it as a directory when it lacks a file extension (matching the test
+        // expectations for paths such as "/tmp/dest").
+
+        let destination_is_dir = match std::fs::metadata(base_destination) {
+            Ok(meta) => meta.is_dir(),
+            Err(_) => base_destination.extension().is_none(),
+        };
+
+        if destination_is_dir {
+            // Place the renamed file inside the (possibly to-be-created) directory
             Ok(base_destination.join(new_name.as_ref()))
         } else {
-            // If destination is a file path, replace the filename part
-            let parent = base_destination.parent()
-                .unwrap_or_else(|| Path::new(""));
+            // Replace the last path component (treat base as a file path)
+            let parent = base_destination.parent().unwrap_or_else(|| Path::new(""));
             Ok(parent.join(new_name.as_ref()))
         }
     }
