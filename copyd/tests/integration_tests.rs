@@ -135,8 +135,8 @@ async fn test_job_manager_basic_operations() -> Result<()> {
         preserve_metadata: true,
         preserve_links: false,
         preserve_sparse: false,
-        verify: copyd::protocol::VerifyMode::None,
-        exists_action: copyd::protocol::ExistsAction::Overwrite,
+        verify: copyd::protocol::VerifyMode::None.into(),
+        exists_action: copyd::protocol::ExistsAction::Overwrite.into(),
         priority: 100,
         max_rate_bps: 0,
         engine: 0,
@@ -236,8 +236,7 @@ async fn test_sparse_file_detection() -> Result<()> {
     drop(file);
     
     // Test sparse file detection
-    let sparse_handler = copyd::sparse::SparseFileHandler::new();
-    let is_sparse = sparse_handler.is_sparse_file(&sparse_file).await.unwrap_or(false);
+    let is_sparse = copyd::sparse::SparseFileHandler::is_sparse_file(&sparse_file).await.unwrap_or(false);
     
     // Note: This may not always detect as sparse depending on filesystem
     // but the test verifies the detection logic runs without error
@@ -291,8 +290,8 @@ async fn test_concurrent_job_execution() -> Result<()> {
             preserve_metadata: false,
             preserve_links: false,
             preserve_sparse: false,
-            verify: copyd::protocol::VerifyMode::None,
-            exists_action: copyd::protocol::ExistsAction::Overwrite,
+            verify: copyd::protocol::VerifyMode::None.into(),
+            exists_action: copyd::protocol::ExistsAction::Overwrite.into(),
             priority: 100,
             max_rate_bps: 0,
             engine: 0,
