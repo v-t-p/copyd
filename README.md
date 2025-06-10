@@ -1,3 +1,6 @@
+**100% written by LLM via cursor as a test, untested and unchecked.. DO NOT USE WITHOUT CHECKING YOURSELF**
+
+
 # copyd - Modern High-Performance File Copy Daemon
 
 > A modern, high-performance replacement for Linux `cp`/`mv` utilities with daemon architecture, resumable transfers, and enterprise-grade reliability.
